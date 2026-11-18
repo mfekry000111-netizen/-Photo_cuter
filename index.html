@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>مُنسق وقاصّ البطاقات الاحترافي</title>
+    <title>مُنسق وقاصّ البطاقات الاحترافي مع فرشاة التنسيق</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
@@ -69,7 +69,6 @@
             z-index: -1;
         }
 
-        /* زر الحفظ في الواجهة أعلى الورق */
         .top-save-bar {
             max-width: 794px;
             margin: 0 auto 12px auto;
@@ -90,7 +89,7 @@
             box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
         }
 
-        /* شاشة المحرر الاحترافية */
+        /* نافذة الاقتصاص الاحترافية */
         #cropperModal {
             display: none;
             position: fixed;
@@ -128,7 +127,7 @@
         }
 
         .editor-top-title {
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 700;
             color: #3f3f46;
         }
@@ -204,7 +203,6 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-            transition: transform 0.12s, background 0.15s, border-color 0.15s;
         }
 
         .btn-box-zoom:active {
@@ -394,6 +392,7 @@
             color: #94a3b8;
             font-size: 0.75rem;
             cursor: pointer;
+            touch-action: none;
         }
 
         .id-box.has-img { border: 1px solid #e2e8f0; }
@@ -403,6 +402,7 @@
             height: 100%;
             object-fit: fill;
             display: block;
+            pointer-events: none;
         }
 
         .tap-hint {
@@ -411,13 +411,12 @@
             right: 4px;
             background: rgba(0,0,0,0.72);
             color: #fff;
-            font-size: 0.65rem;
-            padding: 3px 7px;
+            font-size: 0.61rem;
+            padding: 2px 6px;
             border-radius: 4px;
             pointer-events: none;
         }
 
-        /* أزرار الحذف والاستبدال داخل المربع */
         .box-btn-del {
             position: absolute;
             top: 4px;
@@ -456,9 +455,41 @@
             z-index: 5;
         }
 
+        .box-btn-copy-format {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            background: rgba(147, 51, 234, 0.95);
+            color: white;
+            border-radius: 4px;
+            border: none;
+            font-size: 0.65rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .box-btn-paste-format {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #9333ea;
+            color: white;
+            border-radius: 6px;
+            border: none;
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 6px 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
+            z-index: 6;
+        }
+
         @media print {
             body { background: white; padding: 0; }
-            header, .upload-section, .top-save-bar, .page-toolbar, #cropperModal, .tap-hint, .btn-clear-all, .box-btn-del, .box-btn-replace { display: none !important; }
+            header, .upload-section, .top-save-bar, .page-toolbar, #cropperModal, .tap-hint, .btn-clear-all, .box-btn-del, .box-btn-replace, .box-btn-copy-format, .box-btn-paste-format { display: none !important; }
             .page-wrapper { margin: 0; page-break-after: always; }
             .a4-sheet { box-shadow: none; width: 210mm; height: 297mm; padding: 5mm; gap: 4mm; }
         }
@@ -468,11 +499,11 @@
 
     <header>
         <h1>مُنسق وقاصّ البطاقات الاحترافي</h1>
-        <p>عرض ورقة A4 فارغة فوراً في الواجهة + اقتصاص احترافي وترتيب تسلسلي</p>
+        <p>ميزة فرشاة التنسيق 🎨: اضغط نسخ التنسيق من بطاقة مظبوطة وطبقه على البقية بنقرة واحدة</p>
     </header>
 
     <label class="upload-section" for="galleryInput">
-        🖼️ اختيار صور البطاقات / العقود من المعرض (بالترتيب: وش ثم ظهر)
+        🖼️ اختيار صور العقود / البطاقات من المعرض (سيتم رصدهم بالترتيب)
         <input type="file" id="galleryInput" accept="image/*" multiple onclick="this.value=null">
     </label>
 
@@ -487,7 +518,7 @@
     <div id="cropperModal">
         <div class="editor-top-bar">
             <button class="btn-top-close" onclick="closeCropper()" title="إلغاء">✕</button>
-            <span class="editor-top-title">اسحب الزوايا أو الأضلاع لتحديد البطاقة</span>
+            <span class="editor-top-title">اسحب الزوايا أو الأضلاع لتحديد البطاقة بدقة</span>
             <button class="btn-top-save" onclick="saveCroppedResult()">حفظ</button>
         </div>
 
@@ -497,9 +528,9 @@
 
         <div class="editor-bottom-panel">
             <div class="reset-row">
-                <button class="btn-box-zoom" onclick="resizeCropBox(0.035)" title="تكبير مربع الاقتصاص">+</button>
+                <button class="btn-box-zoom" onclick="resizeCropBox(0.035)" title="تكبير">+</button>
                 <button class="btn-reset-all" onclick="resetCropperState()">إعادة الضبط</button>
-                <button class="btn-box-zoom" onclick="resizeCropBox(-0.035)" title="تصغير مربع الاقتصاص">−</button>
+                <button class="btn-box-zoom" onclick="resizeCropBox(-0.035)" title="تصغير">−</button>
             </div>
 
             <div class="ruler-container">
@@ -543,14 +574,16 @@
         let replaceTargetIndex = -1;
         let replaceTargetSide = null;
 
+        // متغيرات فرشاة نسخ التنسيق
+        let copiedFormatData = null;
+
         let rawOriginalImage = null;
         let rotatedCanvas = null;
-        let rotationDeg = 0;
         let fineAngle = 0;
         let base90Angle = 0;
         let lockIdRatio = false;
 
-        let cropBox = { x: 0.25, y: 0.35, w: 0.50, h: 0.30 };
+        let cropBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
 
         let viewCam = { scale: 1, offsetX: 0, offsetY: 0 };
         let targetCam = { scale: 1, offsetX: 0, offsetY: 0 };
@@ -565,7 +598,7 @@
         const workspace = document.getElementById('workspaceArea');
 
         window.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('pro_id_cards_v21');
+            const saved = localStorage.getItem('pro_id_cards_v34');
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
@@ -577,22 +610,29 @@
                             frontOriginal: fImg,
                             frontOrigData: item.frontOrigData,
                             frontCropped: item.frontCropped,
-                            frontBox: item.frontBox,
+                            frontBox: item.frontBox || { x: 0.28, y: 0.45, w: 0.44, h: 0.277 },
                             frontRot: item.frontRot || { base: 0, fine: 0 },
                             backOriginal: bImg,
                             backOrigData: item.backOrigData,
                             backCropped: item.backCropped,
-                            backBox: item.backBox,
+                            backBox: item.backBox || { x: 0.28, y: 0.45, w: 0.44, h: 0.277 },
                             backRot: item.backRot || { base: 0, fine: 0 }
                         };
                     });
                 } catch (e) { console.error(e); }
             }
+            ensureEmptySlots();
             renderSheets();
         });
 
         function saveToStorage() {
             try {
+                while (cardsData.length > 0) {
+                    const last = cardsData[cardsData.length - 1];
+                    if (!last.frontCropped && !last.backCropped) cardsData.pop();
+                    else break;
+                }
+
                 const cleanData = cardsData.map(item => ({
                     frontOrigData: item.frontOrigData,
                     frontCropped: item.frontCropped,
@@ -603,21 +643,31 @@
                     backBox: item.backBox,
                     backRot: item.backRot
                 }));
-                localStorage.setItem('pro_id_cards_v21', JSON.stringify(cleanData));
+                localStorage.setItem('pro_id_cards_v34', JSON.stringify(cleanData));
             } catch (e) {
                 console.warn('تم تجاوز سعة التخزين المؤقت للمتصفح.');
             }
         }
 
+        function ensureEmptySlots() {
+            while (cardsData.length < 5) {
+                cardsData.push({
+                    frontOriginal: null, frontOrigData: null, frontCropped: null, frontBox: { x: 0.28, y: 0.45, w: 0.44, h: 0.277 }, frontRot: { base: 0, fine: 0 },
+                    backOriginal: null, backOrigData: null, backCropped: null, backBox: { x: 0.28, y: 0.45, w: 0.44, h: 0.277 }, backRot: { base: 0, fine: 0 }
+                });
+            }
+        }
+
         function manualSaveWork() {
             saveToStorage();
-            alert('✅ تم حفظ العمل بنجاح! يمكنك العودة لاحقاً وستجد الصور موجودة.');
+            alert('✅ تم حفظ العمل بنجاح!');
         }
 
         function clearAllData() {
             if (confirm('هل تريد مسح جميع البطاقات والبدء من جديد؟')) {
-                localStorage.removeItem('pro_id_cards_v21');
+                localStorage.removeItem('pro_id_cards_v34');
                 cardsData = [];
+                ensureEmptySlots();
                 renderSheets();
             }
         }
@@ -642,131 +692,6 @@
             return offCanvas;
         }
 
-        function detectCardInContract(sourceCanvas) {
-            const analysisW = 420;
-            const scale = analysisW / sourceCanvas.width;
-            const analysisH = Math.max(120, Math.round(sourceCanvas.height * scale));
-
-            const tmp = document.createElement('canvas');
-            tmp.width = analysisW;
-            tmp.height = analysisH;
-            const tCtx = tmp.getContext('2d');
-            tCtx.drawImage(sourceCanvas, 0, 0, analysisW, analysisH);
-
-            const imgData = tCtx.getImageData(0, 0, analysisW, analysisH).data;
-            const imgRatio = sourceCanvas.width / sourceCanvas.height;
-
-            const scoreMap = new Float32Array(analysisW * analysisH);
-            const marginX = Math.floor(analysisW * 0.08);
-            const marginTop = Math.floor(analysisH * 0.16);
-            const marginBottom = Math.floor(analysisH * 0.90);
-
-            for (let y = marginTop; y < marginBottom; y++) {
-                for (let x = marginX; x < analysisW - marginX; x++) {
-                    const idx = (y * analysisW + x) * 4;
-                    const r = imgData[idx];
-                    const g = imgData[idx + 1];
-                    const b = imgData[idx + 2];
-
-                    const maxC = Math.max(r, g, b);
-                    const minC = Math.min(r, g, b);
-                    const diff = maxC - minC;
-                    const sat = maxC > 0 ? diff / maxC : 0;
-
-                    const isWarmCardBg = (r > g + 8) && (g > b + 6) && (diff >= 18) && (maxC > 75 && maxC < 245);
-                    const isBlueCardAccent = (b > r + 10) && (sat > 0.14) && (maxC > 60);
-                    const isRichTone = (sat > 0.18) && (maxC > 55 && maxC < 240);
-
-                    const idxRight = idx + 4;
-                    const idxDown = idx + analysisW * 4;
-                    const gradX = Math.abs(r - imgData[idxRight]) + Math.abs(g - imgData[idxRight + 1]);
-                    const gradY = Math.abs(r - imgData[idxDown]) + Math.abs(g - imgData[idxDown + 1]);
-                    const edgeStrength = (gradX + gradY) > 45 ? 1.5 : 0;
-
-                    let score = 0;
-                    if (isWarmCardBg) score += 4.5;
-                    if (isBlueCardAccent) score += 4.0;
-                    if (isRichTone) score += 2.5;
-                    score += edgeStrength;
-
-                    if (minC > 205 && diff < 16) score = 0;
-
-                    scoreMap[y * analysisW + x] = score;
-                }
-            }
-
-            const integral = new Float64Array((analysisW + 1) * (analysisH + 1));
-            const stride = analysisW + 1;
-            for (let y = 1; y <= analysisH; y++) {
-                let rowSum = 0;
-                for (let x = 1; x <= analysisW; x++) {
-                    rowSum += scoreMap[(y - 1) * analysisW + (x - 1)];
-                    integral[y * stride + x] = integral[(y - 1) * stride + x] + rowSum;
-                }
-            }
-
-            const getBoxSum = (x1, y1, x2, y2) => {
-                return integral[y2 * stride + x2] - integral[y1 * stride + x2] - integral[y2 * stride + x1] + integral[y1 * stride + x1];
-            };
-
-            let bestMetric = -1;
-            let bestRect = null;
-
-            for (let wRatio = 0.28; wRatio <= 0.66; wRatio += 0.02) {
-                const boxW = Math.round(analysisW * wRatio);
-                const boxH = Math.round((boxW / 1.586));
-                if (boxH >= analysisH - marginTop) continue;
-
-                const area = boxW * boxH;
-                const stepX = Math.max(2, Math.round(boxW * 0.04));
-                const stepY = Math.max(2, Math.round(boxH * 0.04));
-
-                for (let y = marginTop; y + boxH <= marginBottom; y += stepY) {
-                    for (let x = marginX; x + boxW <= analysisW - marginX; x += stepX) {
-                        const innerSum = getBoxSum(x, y, x + boxW, y + boxH);
-                        const density = innerSum / area;
-                        if (density < 0.8) continue;
-
-                        const pad = Math.max(4, Math.round(boxW * 0.08));
-                        const ox1 = Math.max(0, x - pad);
-                        const oy1 = Math.max(0, y - pad);
-                        const ox2 = Math.min(analysisW, x + boxW + pad);
-                        const oy2 = Math.min(analysisH, y + boxH + pad);
-                        const outerArea = Math.max(1, (ox2 - ox1) * (oy2 - oy1) - area);
-                        const outerSum = getBoxSum(ox1, oy1, ox2, oy2) - innerSum;
-                        const outerDensity = outerSum / outerArea;
-
-                        const metric = (density - outerDensity * 1.35) * Math.pow(area, 0.22);
-
-                        if (metric > bestMetric) {
-                            bestMetric = metric;
-                            bestRect = { x, y, w: boxW, h: boxH };
-                        }
-                    }
-                }
-            }
-
-            if (bestRect && bestMetric > 1.2) {
-                const trimX = bestRect.w * 0.022;
-                const trimY = bestRect.h * 0.022;
-                const finalW = (bestRect.w - trimX * 2) / analysisW;
-                const finalH = (finalW * imgRatio) / 1.586;
-                const finalX = Math.max(0, Math.min(1 - finalW, (bestRect.x + trimX) / analysisW));
-                const finalY = Math.max(0, Math.min(1 - finalH, (bestRect.y + trimY) / analysisH));
-
-                return { x: finalX, y: finalY, w: finalW, h: finalH };
-            }
-
-            const boxW = 0.44;
-            const boxH = Math.min(0.55, (boxW * imgRatio) / 1.586);
-            return {
-                x: (1 - boxW) / 2,
-                y: (1 - boxH) / 2,
-                w: boxW,
-                h: boxH
-            };
-        }
-
         function extractHighResCrop(sourceCanvas, box) {
             const sx = Math.max(0, Math.round(box.x * sourceCanvas.width));
             const sy = Math.max(0, Math.round(box.y * sourceCanvas.height));
@@ -783,6 +708,76 @@
             outCtx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, outCanvas.width, outCanvas.height);
 
             return outCanvas.toDataURL('image/jpeg', 0.96);
+        }
+
+        function recomputeCroppedImage(item, side) {
+            const origImg = side === 'front' ? item.frontOriginal : item.backOriginal;
+            const origData = side === 'front' ? item.frontOrigData : item.backOrigData;
+            const box = side === 'front' ? item.frontBox : item.backBox;
+            const rot = side === 'front' ? item.frontRot : item.backRot;
+
+            if (!origData) return;
+
+            if (origImg && origImg.complete && origImg.naturalWidth > 0) {
+                const rotCanvas = buildRotatedFullResCanvas(origImg, (rot ? rot.base + rot.fine : 0));
+                const newUrl = extractHighResCrop(rotCanvas, box);
+                if (side === 'front') item.frontCropped = newUrl;
+                else item.backCropped = newUrl;
+                saveToStorage();
+                renderSheets();
+            } else {
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    if (side === 'front') item.frontOriginal = tempImg;
+                    else item.backOriginal = tempImg;
+                    const rotCanvas = buildRotatedFullResCanvas(tempImg, (rot ? rot.base + rot.fine : 0));
+                    const newUrl = extractHighResCrop(rotCanvas, box);
+                    if (side === 'front') item.frontCropped = newUrl;
+                    else item.backCropped = newUrl;
+                    saveToStorage();
+                    renderSheets();
+                };
+                tempImg.src = origData;
+            }
+        }
+
+        // دالة نسخ تنسيق البطاقة (الفرشاة)
+        function copyCardFormat(rowIndex, side, event) {
+            event.stopPropagation();
+            const item = cardsData[rowIndex];
+            if (!item) return;
+
+            copiedFormatData = {
+                box: JSON.parse(JSON.stringify(side === 'front' ? item.frontBox : item.backBox)),
+                rot: JSON.parse(JSON.stringify(side === 'front' ? item.frontRot : item.backRot))
+            };
+            alert('🎨 تم نسخ تنسيق وقص هذه البطاقة بنجاح! اضغط الآن على (📌 لصق التنسيق) في أي بطاقة أخرى لتطبيقها.');
+            renderSheets();
+        }
+
+        // دالة تطبيق تنسيق البطاقة المنسوخة على بطاقة أخرى
+        function pasteCardFormat(targetRowIndex, targetSide, event) {
+            event.stopPropagation();
+            if (!copiedFormatData) return;
+
+            const item = cardsData[targetRowIndex];
+            if (!item || !(targetSide === 'front' ? item.frontOrigData : item.backOrigData)) {
+                alert('⚠️ هذه البطاقة فارغة، الرجاء اختيار بطاقة بها صورة أولاً.');
+                return;
+            }
+
+            if (targetSide === 'front') {
+                item.frontBox = JSON.parse(JSON.stringify(copiedFormatData.box));
+                item.frontRot = JSON.parse(JSON.stringify(copiedFormatData.rot));
+                recomputeCroppedImage(item, 'front');
+            } else {
+                item.backBox = JSON.parse(JSON.stringify(copiedFormatData.box));
+                item.backRot = JSON.parse(JSON.stringify(copiedFormatData.rot));
+                recomputeCroppedImage(item, 'back');
+            }
+
+            alert('✨ تم تطبيق التنسيق والقص بنجاح على البطاقة!');
+            renderSheets();
         }
 
         document.getElementById('galleryInput').addEventListener('change', function(e) {
@@ -803,32 +798,44 @@
                         if (loadedCount === files.length) {
                             loadedImages.forEach(entry => {
                                 const fullCanvas = buildRotatedFullResCanvas(entry.img, 0);
-                                const detectedBox = detectCardInContract(fullCanvas);
-                                const croppedUrl = extractHighResCrop(fullCanvas, detectedBox);
+                                const defaultBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+                                const croppedUrl = extractHighResCrop(fullCanvas, defaultBox);
 
-                                const lastCard = cardsData.length > 0 ? cardsData[cardsData.length - 1] : null;
-                                if (lastCard && lastCard.frontCropped && !lastCard.backCropped) {
-                                    lastCard.backOriginal = entry.img;
-                                    lastCard.backOrigData = entry.dataUrl;
-                                    lastCard.backCropped = croppedUrl;
-                                    lastCard.backBox = detectedBox;
-                                    lastCard.backRot = { base: 0, fine: 0 };
-                                } else {
+                                let placed = false;
+                                for (let i = 0; i < cardsData.length; i++) {
+                                    if (!cardsData[i].frontCropped) {
+                                        cardsData[i].frontOriginal = entry.img;
+                                        cardsData[i].frontOrigData = entry.dataUrl;
+                                        cardsData[i].frontCropped = croppedUrl;
+                                        cardsData[i].frontBox = defaultBox;
+                                        cardsData[i].frontRot = { base: 0, fine: 0 };
+                                        placed = true;
+                                        break;
+                                    } else if (!cardsData[i].backCropped) {
+                                        cardsData[i].backOriginal = entry.img;
+                                        cardsData[i].backOrigData = entry.dataUrl;
+                                        cardsData[i].backCropped = croppedUrl;
+                                        cardsData[i].backBox = defaultBox;
+                                        cardsData[i].backRot = { base: 0, fine: 0 };
+                                        placed = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!placed) {
                                     cardsData.push({
                                         frontOriginal: entry.img,
                                         frontOrigData: entry.dataUrl,
                                         frontCropped: croppedUrl,
-                                        frontBox: detectedBox,
+                                        frontBox: defaultBox,
                                         frontRot: { base: 0, fine: 0 },
-                                        backOriginal: null,
-                                        backOrigData: null,
-                                        backCropped: null,
-                                        backBox: null,
-                                        backRot: { base: 0, fine: 0 }
+                                        backOriginal: null, backOrigData: null, backCropped: null,
+                                        backBox: defaultBox, backRot: { base: 0, fine: 0 }
                                     });
                                 }
                             });
 
+                            ensureEmptySlots();
                             saveToStorage();
                             renderSheets();
                         }
@@ -842,7 +849,7 @@
 
         function openCropper(rowIndex, side) {
             const item = cardsData[rowIndex];
-            if (!item) return;
+            if (!item || !(side === 'front' ? item.frontCropped : item.backCropped)) return;
 
             activeRowIndex = rowIndex;
             activeSide = side;
@@ -860,11 +867,26 @@
                 updateAngleBadge();
 
                 rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
-                cropBox = savedBox ? JSON.parse(JSON.stringify(savedBox)) : detectCardInContract(rotatedCanvas);
+                cropBox = savedBox ? JSON.parse(JSON.stringify(savedBox)) : { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
 
                 document.getElementById('cropperModal').style.display = 'flex';
                 resizeCanvasToWorkspace();
-                fitCameraToCropBox(true);
+                
+                const base = getBaseImageRect();
+                const cropPixelW = cropBox.w * base.w;
+                const targetScale = Math.min((canvas.width * 0.85) / cropPixelW, 3.5);
+
+                const cropCenterX = base.x + (cropBox.x + cropBox.w / 2) * base.w;
+                const cropCenterY = base.y + (cropBox.y + cropBox.h / 2) * base.h;
+
+                viewCam = {
+                    scale: targetScale,
+                    offsetX: (canvas.width / 2) - cropCenterX * targetScale,
+                    offsetY: (canvas.height / 2) - cropCenterY * targetScale
+                };
+                targetCam = { ...viewCam };
+
+                renderCropperCanvas();
             };
 
             if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
@@ -893,7 +915,6 @@
         window.addEventListener('resize', () => {
             if (document.getElementById('cropperModal').style.display === 'flex') {
                 resizeCanvasToWorkspace();
-                fitCameraToCropBox(true);
             }
         });
 
@@ -913,39 +934,19 @@
             };
         }
 
-        function fitCameraToCropBox(instant = false) {
+        function resetZoomView() {
+            if (!rotatedCanvas) return;
             const base = getBaseImageRect();
-            const boxPxW = cropBox.w * base.w;
-            const boxPxH = cropBox.h * base.h;
-            const boxCenterX = base.x + (cropBox.x + cropBox.w / 2) * base.w;
-            const boxCenterY = base.y + (cropBox.y + cropBox.h / 2) * base.h;
-
-            const pad = 55;
-            const maxW = canvas.width - pad * 2;
-            const maxH = canvas.height - pad * 2;
-
-            let desiredScale = Math.min(maxW / boxPxW, maxH / boxPxH);
-            desiredScale = Math.max(1, Math.min(desiredScale, 3.8));
-
-            const screenCenterX = canvas.width / 2;
-            const screenCenterY = canvas.height / 2;
+            const cropPixelW = cropBox.w * base.w;
+            const targetScale = Math.min((canvas.width * 0.85) / cropPixelW, 3.5);
+            const cropCenterX = base.x + (cropBox.x + cropBox.w / 2) * base.w;
+            const cropCenterY = base.y + (cropBox.y + cropBox.h / 2) * base.h;
 
             targetCam = {
-                scale: desiredScale,
-                offsetX: screenCenterX - boxCenterX * desiredScale,
-                offsetY: screenCenterY - boxCenterY * desiredScale
+                scale: targetScale,
+                offsetX: (canvas.width / 2) - cropCenterX * targetScale,
+                offsetY: (canvas.height / 2) - cropCenterY * targetScale
             };
-
-            if (instant) {
-                viewCam = { ...targetCam };
-                renderCropperCanvas();
-            } else {
-                animateCamera();
-            }
-        }
-
-        function resetZoomView() {
-            targetCam = { scale: 1, offsetX: 0, offsetY: 0 };
             animateCamera();
         }
 
@@ -1172,7 +1173,6 @@
         function onTouchEnd() {
             if (activeHandle) {
                 activeHandle = null;
-                fitCameraToCropBox(false);
             }
         }
 
@@ -1205,7 +1205,7 @@
             const newY = Math.max(0, Math.min(1 - newH, cy - newH / 2));
 
             cropBox = { x: newX, y: newY, w: newW, h: newH };
-            fitCameraToCropBox(false);
+            renderCropperCanvas();
         }
 
         function onAngleSlide(val) {
@@ -1220,7 +1220,7 @@
             base90Angle = (base90Angle + delta + 360) % 360;
             if (!rawOriginalImage) return;
             rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
-            fitCameraToCropBox(true);
+            renderCropperCanvas();
         }
 
         function updateAngleBadge() {
@@ -1239,7 +1239,7 @@
                 if (rotatedCanvas) {
                     const imgAspect = rotatedCanvas.width / rotatedCanvas.height;
                     cropBox.h = Math.min(1 - cropBox.y, (cropBox.w * imgAspect) / 1.586);
-                    fitCameraToCropBox(false);
+                    renderCropperCanvas();
                 }
             } else {
                 icon.style.background = '#f4f4f5';
@@ -1255,8 +1255,8 @@
             updateAngleBadge();
             if (rawOriginalImage) {
                 rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, 0);
-                cropBox = detectCardInContract(rotatedCanvas);
-                fitCameraToCropBox(false);
+                cropBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+                renderCropperCanvas();
             }
         }
 
@@ -1280,7 +1280,6 @@
             renderSheets();
         }
 
-        // دالة حذف صورة فردية (وش أو ظهر)
         function deleteSingleImage(rowIndex, side, event) {
             event.stopPropagation();
             const item = cardsData[rowIndex];
@@ -1290,24 +1289,19 @@
                 item.frontOriginal = null;
                 item.frontOrigData = null;
                 item.frontCropped = null;
-                item.frontBox = null;
+                item.frontBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
             } else {
                 item.backOriginal = null;
                 item.backOrigData = null;
                 item.backCropped = null;
-                item.backBox = null;
+                item.backBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
             }
 
-            // إذا أصبحت البطاقة فارغة تماماً يتم حذفها من القائمة
-            if (!item.frontCropped && !item.backCropped) {
-                cardsData.splice(rowIndex, 1);
-            }
-
+            ensureEmptySlots();
             saveToStorage();
             renderSheets();
         }
 
-        // فتح معرض الصور لاستبدال صورة فردية
         function triggerReplaceImage(rowIndex, side, event) {
             event.stopPropagation();
             replaceTargetIndex = rowIndex;
@@ -1325,7 +1319,7 @@
                 const img = new Image();
                 img.onload = function() {
                     const fullCanvas = buildRotatedFullResCanvas(img, 0);
-                    const detectedBox = detectCardInContract(fullCanvas);
+                    const detectedBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
                     const croppedUrl = extractHighResCrop(fullCanvas, detectedBox);
 
                     const item = cardsData[replaceTargetIndex];
@@ -1343,6 +1337,7 @@
                         item.backRot = { base: 0, fine: 0 };
                     }
 
+                    ensureEmptySlots();
                     saveToStorage();
                     renderSheets();
                     replaceTargetIndex = -1;
@@ -1353,7 +1348,6 @@
             reader.readAsDataURL(file);
         }
 
-        // ميزة سحب وإفلات النقل بين المربعات
         function handleDragStart(e, rowIndex, side) {
             e.dataTransfer.setData('text/plain', JSON.stringify({ rowIndex, side }));
         }
@@ -1379,27 +1373,82 @@
                 orig: srcItem.backOriginal, origData: srcItem.backOrigData, cropped: srcItem.backCropped, box: srcItem.backBox, rot: srcItem.backRot
             };
 
-            const targetData = targetSide === 'front' ? {
-                orig: targetItem.frontOriginal, origData: targetItem.frontOrigData, cropped: targetItem.frontCropped, box: targetItem.frontBox, rot: targetItem.frontRot
-            } : {
-                orig: targetItem.backOriginal, origData: targetItem.backOrigData, cropped: targetItem.backCropped, box: targetItem.backBox, rot: targetItem.backRot
-            };
+            const targetHasData = targetSide === 'front' ? !!targetItem.frontCropped : !!targetItem.backCropped;
 
-            // عملية التبديل (Swap)
-            if (src.side === 'front') {
-                srcItem.frontOriginal = targetData.orig; srcItem.frontOrigData = targetData.origData; srcItem.frontCropped = targetData.cropped; srcItem.frontBox = targetData.box; srcItem.frontRot = targetData.rot;
+            if (!targetHasData) {
+                if (targetSide === 'front') {
+                    targetItem.frontOriginal = srcData.orig; targetItem.frontOrigData = srcData.origData; targetItem.frontCropped = srcData.cropped; targetItem.frontBox = srcData.box; targetItem.frontRot = srcData.rot;
+                } else {
+                    targetItem.backOriginal = srcData.orig; targetItem.backOrigData = srcData.origData; targetItem.backCropped = srcData.cropped; targetItem.backBox = srcData.box; targetItem.backRot = srcData.rot;
+                }
+
+                if (src.side === 'front') {
+                    srcItem.frontOriginal = null; srcItem.frontOrigData = null; srcItem.frontCropped = null; srcItem.frontBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+                } else {
+                    srcItem.backOriginal = null; srcItem.backOrigData = null; srcItem.backCropped = null; srcItem.backBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+                }
             } else {
-                srcItem.backOriginal = targetData.orig; srcItem.backOrigData = targetData.origData; srcItem.backCropped = targetData.cropped; srcItem.backBox = targetData.box; srcItem.backRot = targetData.rot;
+                const targetData = targetSide === 'front' ? {
+                    orig: targetItem.frontOriginal, origData: targetItem.frontOrigData, cropped: targetItem.frontCropped, box: targetItem.frontBox, rot: targetItem.frontRot
+                } : {
+                    orig: targetItem.backOriginal, origData: targetItem.backOrigData, cropped: targetItem.backCropped, box: targetItem.backBox, rot: targetItem.backRot
+                };
+
+                if (src.side === 'front') {
+                    srcItem.frontOriginal = targetData.orig; srcItem.frontOrigData = targetData.origData; srcItem.frontCropped = targetData.cropped; srcItem.frontBox = targetData.box; srcItem.frontRot = targetData.rot;
+                } else {
+                    srcItem.backOriginal = targetData.orig; srcItem.backOrigData = targetData.origData; srcItem.backCropped = targetData.cropped; srcItem.backBox = targetData.box; srcItem.backRot = targetData.rot;
+                }
+
+                if (targetSide === 'front') {
+                    targetItem.frontOriginal = srcData.orig; targetItem.frontOrigData = srcData.origData; targetItem.frontCropped = srcData.cropped; targetItem.frontBox = srcData.box; targetItem.frontRot = srcData.rot;
+                } else {
+                    targetItem.backOriginal = srcData.orig; targetItem.backOrigData = srcData.origData; targetItem.backCropped = srcData.cropped; targetItem.backBox = srcData.box; targetItem.backRot = srcData.rot;
+                }
             }
 
-            if (targetSide === 'front') {
-                targetItem.frontOriginal = srcData.orig; targetItem.frontOrigData = srcData.origData; targetItem.frontCropped = srcData.cropped; targetItem.frontBox = srcData.box; targetItem.frontRot = srcData.rot;
-            } else {
-                targetItem.backOriginal = srcData.orig; targetItem.backOrigData = srcData.origData; targetItem.backCropped = srcData.cropped; targetItem.backBox = srcData.box; targetItem.backRot = srcData.rot;
-            }
-
+            ensureEmptySlots();
             saveToStorage();
             renderSheets();
+        }
+
+        function initDirectTouch(boxEl, rowIndex, side) {
+            let startX = 0, startY = 0;
+            let isDragging = false;
+
+            boxEl.addEventListener('touchstart', (e) => {
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') return;
+                isDragging = true;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            }, { passive: true });
+
+            boxEl.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const currentX = e.touches[0].clientX;
+                const currentY = e.touches[0].clientY;
+
+                const dx = (currentX - startX);
+                const dy = (currentY - startY);
+
+                if (Math.hypot(dx, dy) > 8) {
+                    const item = cardsData[rowIndex];
+                    if (!item) return;
+                    const box = side === 'front' ? item.frontBox : item.backBox;
+
+                    box.x = Math.max(0, Math.min(1 - box.w, box.x - (dx * 0.0006)));
+                    box.y = Math.max(0, Math.min(1 - box.h, box.y - (dy * 0.0006)));
+
+                    startX = currentX;
+                    startY = currentY;
+
+                    recomputeCroppedImage(item, side);
+                }
+            }, { passive: true });
+
+            boxEl.addEventListener('touchend', () => {
+                isDragging = false;
+            });
         }
 
         function renderSheets() {
@@ -1408,10 +1457,11 @@
             container.innerHTML = '';
             clearSection.innerHTML = '';
 
-            const totalSheets = cardsData.length === 0 ? 1 : Math.ceil(cardsData.length / 5);
+            const totalSheets = Math.max(1, Math.ceil(cardsData.filter(i => i.frontCropped || i.backCropped).length / 5) + 1);
 
             for (let s = 0; s < totalSheets; s++) {
                 const slice = cardsData.slice(s * 5, (s + 1) * 5);
+                if (s > 0 && slice.every(i => !i.frontCropped && !i.backCropped)) continue;
 
                 const wrapper = document.createElement('div');
                 wrapper.className = 'page-wrapper';
@@ -1432,50 +1482,76 @@
                 sheet.id = `sheet-${s}`;
 
                 for (let r = 0; r < 5; r++) {
-                    const pair = slice[r];
+                    const pair = slice[r] || { frontCropped: null, backCropped: null };
                     const globalIdx = (s * 5) + r;
 
                     const row = document.createElement('div');
                     row.className = 'id-pair-row';
 
-                    // صندوق الوش
+                    // الوش
                     const frontBox = document.createElement('div');
-                    frontBox.className = 'id-box' + (pair && pair.frontCropped ? ' has-img' : '');
+                    frontBox.className = 'id-box' + (pair.frontCropped ? ' has-img' : '');
                     frontBox.ondragover = handleDragOver;
                     frontBox.ondrop = (e) => handleDrop(e, globalIdx, 'front');
 
-                    if (pair && pair.frontCropped) {
+                    if (pair.frontCropped) {
                         frontBox.draggable = true;
                         frontBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'front');
+                        
+                        let extraPasteBtn = '';
+                        if (copiedFormatData) {
+                            extraPasteBtn = `<button class="box-btn-paste-format" onclick="pasteCardFormat(${globalIdx}, 'front', event)">📌 لصق التنسيق</button>`;
+                        }
+
                         frontBox.innerHTML = `
                             <img src="${pair.frontCropped}">
-                            <span class="tap-hint">تعديل القص</span>
+                            <span class="tap-hint">اسحب للنقل</span>
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'front', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'front', event)" title="استبدال">+</button>
+                            <button class="box-btn-copy-format" onclick="copyCardFormat(${globalIdx}, 'front', event)" title="نسخ التنسيق">🎨 نسخ</button>
+                            ${extraPasteBtn}
                         `;
-                        frontBox.onclick = () => openCropper(globalIdx, 'front');
+                        frontBox.ondblclick = () => openCropper(globalIdx, 'front');
+                        initDirectTouch(frontBox, globalIdx, 'front');
                     } else {
-                        frontBox.innerHTML = `<span>وش البطاقة</span>`;
+                        let extraPasteBtn = '';
+                        if (copiedFormatData && cardsData[globalIdx].frontOrigData) {
+                            extraPasteBtn = `<button class="box-btn-paste-format" onclick="pasteCardFormat(${globalIdx}, 'front', event)">📌 لصق التنسيق</button>`;
+                        }
+                        frontBox.innerHTML = `<span>وش البطاقة</span>${extraPasteBtn}`;
                     }
 
-                    // صندوق الظهر
+                    // الظهر
                     const backBox = document.createElement('div');
-                    backBox.className = 'id-box' + (pair && pair.backCropped ? ' has-img' : '');
+                    backBox.className = 'id-box' + (pair.backCropped ? ' has-img' : '');
                     backBox.ondragover = handleDragOver;
                     backBox.ondrop = (e) => handleDrop(e, globalIdx, 'back');
 
-                    if (pair && pair.backCropped) {
+                    if (pair.backCropped) {
                         backBox.draggable = true;
                         backBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'back');
+                        
+                        let extraPasteBtn = '';
+                        if (copiedFormatData) {
+                            extraPasteBtn = `<button class="box-btn-paste-format" onclick="pasteCardFormat(${globalIdx}, 'back', event)">📌 لصق التنسيق</button>`;
+                        }
+
                         backBox.innerHTML = `
                             <img src="${pair.backCropped}">
-                            <span class="tap-hint">تعديل القص</span>
+                            <span class="tap-hint">اسحب للنقل</span>
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'back', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'back', event)" title="استبدال">+</button>
+                            <button class="box-btn-copy-format" onclick="copyCardFormat(${globalIdx}, 'back', event)" title="نسخ التنسيق">🎨 نسخ</button>
+                            ${extraPasteBtn}
                         `;
-                        backBox.onclick = () => openCropper(globalIdx, 'back');
+                        backBox.ondblclick = () => openCropper(globalIdx, 'back');
+                        initDirectTouch(backBox, globalIdx, 'back');
                     } else {
-                        backBox.innerHTML = `<span>ظهر البطاقة</span>`;
+                        let extraPasteBtn = '';
+                        if (copiedFormatData && cardsData[globalIdx].backOrigData) {
+                            extraPasteBtn = `<button class="box-btn-paste-format" onclick="pasteCardFormat(${globalIdx}, 'back', event)">📌 لصق التنسيق</button>`;
+                        }
+                        backBox.innerHTML = `<span>ظهر البطاقة</span>${extraPasteBtn}`;
                     }
 
                     row.appendChild(frontBox);
@@ -1488,7 +1564,7 @@
                 container.appendChild(wrapper);
             }
 
-            if (cardsData.length > 0) {
+            if (cardsData.some(i => i.frontCropped || i.backCropped)) {
                 clearSection.innerHTML = `<button class="btn-clear-all" onclick="clearAllData()">🗑️ مسح الكل والبدء من جديد</button>`;
             }
         }
@@ -1498,9 +1574,14 @@
             const hints = el.querySelectorAll('.tap-hint');
             const dels = el.querySelectorAll('.box-btn-del');
             const reps = el.querySelectorAll('.box-btn-replace');
+            const copies = el.querySelectorAll('.box-btn-copy-format');
+            const pastes = el.querySelectorAll('.box-btn-paste-format');
+
             hints.forEach(h => h.style.display = 'none');
             dels.forEach(d => d.style.display = 'none');
             reps.forEach(re => re.style.display = 'none');
+            copies.forEach(c => c.style.display = 'none');
+            pastes.forEach(p => p.style.display = 'none');
 
             try {
                 const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
@@ -1521,6 +1602,8 @@
                 hints.forEach(h => h.style.display = 'block');
                 dels.forEach(d => d.style.display = 'flex');
                 reps.forEach(re => re.style.display = 'flex');
+                copies.forEach(c => c.style.display = 'block');
+                pastes.forEach(p => p.style.display = 'block');
             }
         }
     </script>
