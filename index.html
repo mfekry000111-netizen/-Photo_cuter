@@ -69,6 +69,27 @@
             z-index: -1;
         }
 
+        /* زر الحفظ في الواجهة أعلى الورق */
+        .top-save-bar {
+            max-width: 794px;
+            margin: 0 auto 12px auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-global-save {
+            flex: 1;
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
         /* شاشة المحرر الاحترافية */
         #cropperModal {
             display: none;
@@ -153,18 +174,44 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            gap: 18px;
             position: relative;
-            height: 24px;
+            height: 34px;
         }
 
         .btn-reset-all {
             background: none;
             border: none;
             color: #52525b;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             font-weight: 700;
             cursor: pointer;
-            padding: 2px 10px;
+            padding: 4px 10px;
+        }
+
+        .btn-box-zoom {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1.5px solid #d4d4d8;
+            background: #f4f4f5;
+            color: #18181b;
+            font-size: 1.2rem;
+            font-weight: 800;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            transition: transform 0.12s, background 0.15s, border-color 0.15s;
+        }
+
+        .btn-box-zoom:active {
+            transform: scale(0.92);
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000000;
         }
 
         .ruler-container {
@@ -370,9 +417,48 @@
             pointer-events: none;
         }
 
+        /* أزرار الحذف والاستبدال داخل المربع */
+        .box-btn-del {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 22px;
+            height: 22px;
+            background: rgba(220, 38, 38, 0.9);
+            color: white;
+            border-radius: 50%;
+            border: none;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .box-btn-replace {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 22px;
+            height: 22px;
+            background: rgba(22, 163, 74, 0.9);
+            color: white;
+            border-radius: 50%;
+            border: none;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 5;
+        }
+
         @media print {
             body { background: white; padding: 0; }
-            header, .upload-section, .page-toolbar, #cropperModal, .tap-hint, .btn-clear-all { display: none !important; }
+            header, .upload-section, .top-save-bar, .page-toolbar, #cropperModal, .tap-hint, .btn-clear-all, .box-btn-del, .box-btn-replace { display: none !important; }
             .page-wrapper { margin: 0; page-break-after: always; }
             .a4-sheet { box-shadow: none; width: 210mm; height: 297mm; padding: 5mm; gap: 4mm; }
         }
@@ -389,6 +475,10 @@
         🖼️ اختيار صور البطاقات / العقود من المعرض (بالترتيب: وش ثم ظهر)
         <input type="file" id="galleryInput" accept="image/*" multiple onclick="this.value=null">
     </label>
+
+    <div class="top-save-bar">
+        <button class="btn-global-save" onclick="manualSaveWork()">💾 حفظ العمل يدوياً</button>
+    </div>
 
     <div id="sheetsContainer"></div>
     <div id="clearSection" style="max-width: 794px; margin: 0 auto;"></div>
@@ -407,7 +497,9 @@
 
         <div class="editor-bottom-panel">
             <div class="reset-row">
+                <button class="btn-box-zoom" onclick="resizeCropBox(0.035)" title="تكبير مربع الاقتصاص">+</button>
                 <button class="btn-reset-all" onclick="resetCropperState()">إعادة الضبط</button>
+                <button class="btn-box-zoom" onclick="resizeCropBox(-0.035)" title="تصغير مربع الاقتصاص">−</button>
             </div>
 
             <div class="ruler-container">
@@ -441,10 +533,15 @@
         </div>
     </div>
 
+    <!-- حقل مخفي لاستبدال صورة فردية -->
+    <input type="file" id="replaceInput" accept="image/*" style="display:none" onchange="handleReplaceFile(this)">
+
     <script>
         let cardsData = [];
         let activeRowIndex = -1;
         let activeSide = 'front';
+        let replaceTargetIndex = -1;
+        let replaceTargetSide = null;
 
         let rawOriginalImage = null;
         let rotatedCanvas = null;
@@ -491,7 +588,6 @@
                     });
                 } catch (e) { console.error(e); }
             }
-            // عرض الورقة فوراً في الواجهة حتى لو كانت قائمة البطاقات فارغة
             renderSheets();
         });
 
@@ -511,6 +607,11 @@
             } catch (e) {
                 console.warn('تم تجاوز سعة التخزين المؤقت للمتصفح.');
             }
+        }
+
+        function manualSaveWork() {
+            saveToStorage();
+            alert('✅ تم حفظ العمل بنجاح! يمكنك العودة لاحقاً وستجد الصور موجودة.');
         }
 
         function clearAllData() {
@@ -541,6 +642,131 @@
             return offCanvas;
         }
 
+        function detectCardInContract(sourceCanvas) {
+            const analysisW = 420;
+            const scale = analysisW / sourceCanvas.width;
+            const analysisH = Math.max(120, Math.round(sourceCanvas.height * scale));
+
+            const tmp = document.createElement('canvas');
+            tmp.width = analysisW;
+            tmp.height = analysisH;
+            const tCtx = tmp.getContext('2d');
+            tCtx.drawImage(sourceCanvas, 0, 0, analysisW, analysisH);
+
+            const imgData = tCtx.getImageData(0, 0, analysisW, analysisH).data;
+            const imgRatio = sourceCanvas.width / sourceCanvas.height;
+
+            const scoreMap = new Float32Array(analysisW * analysisH);
+            const marginX = Math.floor(analysisW * 0.08);
+            const marginTop = Math.floor(analysisH * 0.16);
+            const marginBottom = Math.floor(analysisH * 0.90);
+
+            for (let y = marginTop; y < marginBottom; y++) {
+                for (let x = marginX; x < analysisW - marginX; x++) {
+                    const idx = (y * analysisW + x) * 4;
+                    const r = imgData[idx];
+                    const g = imgData[idx + 1];
+                    const b = imgData[idx + 2];
+
+                    const maxC = Math.max(r, g, b);
+                    const minC = Math.min(r, g, b);
+                    const diff = maxC - minC;
+                    const sat = maxC > 0 ? diff / maxC : 0;
+
+                    const isWarmCardBg = (r > g + 8) && (g > b + 6) && (diff >= 18) && (maxC > 75 && maxC < 245);
+                    const isBlueCardAccent = (b > r + 10) && (sat > 0.14) && (maxC > 60);
+                    const isRichTone = (sat > 0.18) && (maxC > 55 && maxC < 240);
+
+                    const idxRight = idx + 4;
+                    const idxDown = idx + analysisW * 4;
+                    const gradX = Math.abs(r - imgData[idxRight]) + Math.abs(g - imgData[idxRight + 1]);
+                    const gradY = Math.abs(r - imgData[idxDown]) + Math.abs(g - imgData[idxDown + 1]);
+                    const edgeStrength = (gradX + gradY) > 45 ? 1.5 : 0;
+
+                    let score = 0;
+                    if (isWarmCardBg) score += 4.5;
+                    if (isBlueCardAccent) score += 4.0;
+                    if (isRichTone) score += 2.5;
+                    score += edgeStrength;
+
+                    if (minC > 205 && diff < 16) score = 0;
+
+                    scoreMap[y * analysisW + x] = score;
+                }
+            }
+
+            const integral = new Float64Array((analysisW + 1) * (analysisH + 1));
+            const stride = analysisW + 1;
+            for (let y = 1; y <= analysisH; y++) {
+                let rowSum = 0;
+                for (let x = 1; x <= analysisW; x++) {
+                    rowSum += scoreMap[(y - 1) * analysisW + (x - 1)];
+                    integral[y * stride + x] = integral[(y - 1) * stride + x] + rowSum;
+                }
+            }
+
+            const getBoxSum = (x1, y1, x2, y2) => {
+                return integral[y2 * stride + x2] - integral[y1 * stride + x2] - integral[y2 * stride + x1] + integral[y1 * stride + x1];
+            };
+
+            let bestMetric = -1;
+            let bestRect = null;
+
+            for (let wRatio = 0.28; wRatio <= 0.66; wRatio += 0.02) {
+                const boxW = Math.round(analysisW * wRatio);
+                const boxH = Math.round((boxW / 1.586));
+                if (boxH >= analysisH - marginTop) continue;
+
+                const area = boxW * boxH;
+                const stepX = Math.max(2, Math.round(boxW * 0.04));
+                const stepY = Math.max(2, Math.round(boxH * 0.04));
+
+                for (let y = marginTop; y + boxH <= marginBottom; y += stepY) {
+                    for (let x = marginX; x + boxW <= analysisW - marginX; x += stepX) {
+                        const innerSum = getBoxSum(x, y, x + boxW, y + boxH);
+                        const density = innerSum / area;
+                        if (density < 0.8) continue;
+
+                        const pad = Math.max(4, Math.round(boxW * 0.08));
+                        const ox1 = Math.max(0, x - pad);
+                        const oy1 = Math.max(0, y - pad);
+                        const ox2 = Math.min(analysisW, x + boxW + pad);
+                        const oy2 = Math.min(analysisH, y + boxH + pad);
+                        const outerArea = Math.max(1, (ox2 - ox1) * (oy2 - oy1) - area);
+                        const outerSum = getBoxSum(ox1, oy1, ox2, oy2) - innerSum;
+                        const outerDensity = outerSum / outerArea;
+
+                        const metric = (density - outerDensity * 1.35) * Math.pow(area, 0.22);
+
+                        if (metric > bestMetric) {
+                            bestMetric = metric;
+                            bestRect = { x, y, w: boxW, h: boxH };
+                        }
+                    }
+                }
+            }
+
+            if (bestRect && bestMetric > 1.2) {
+                const trimX = bestRect.w * 0.022;
+                const trimY = bestRect.h * 0.022;
+                const finalW = (bestRect.w - trimX * 2) / analysisW;
+                const finalH = (finalW * imgRatio) / 1.586;
+                const finalX = Math.max(0, Math.min(1 - finalW, (bestRect.x + trimX) / analysisW));
+                const finalY = Math.max(0, Math.min(1 - finalH, (bestRect.y + trimY) / analysisH));
+
+                return { x: finalX, y: finalY, w: finalW, h: finalH };
+            }
+
+            const boxW = 0.44;
+            const boxH = Math.min(0.55, (boxW * imgRatio) / 1.586);
+            return {
+                x: (1 - boxW) / 2,
+                y: (1 - boxH) / 2,
+                w: boxW,
+                h: boxH
+            };
+        }
+
         function extractHighResCrop(sourceCanvas, box) {
             const sx = Math.max(0, Math.round(box.x * sourceCanvas.width));
             const sy = Math.max(0, Math.round(box.y * sourceCanvas.height));
@@ -548,7 +774,7 @@
             const sh = Math.min(sourceCanvas.height - sy, Math.round(box.h * sourceCanvas.height));
 
             const outCanvas = document.createElement('canvas');
-            outCanvas.width = Math.max(sw, 1000);
+            outCanvas.width = Math.max(sw, 1100);
             outCanvas.height = Math.round(outCanvas.width / 1.586);
 
             const outCtx = outCanvas.getContext('2d');
@@ -577,30 +803,22 @@
                         if (loadedCount === files.length) {
                             loadedImages.forEach(entry => {
                                 const fullCanvas = buildRotatedFullResCanvas(entry.img, 0);
-                                const imgRatio = fullCanvas.width / fullCanvas.height;
-                                const boxW = 0.56;
-                                const boxH = Math.min(0.65, (boxW * imgRatio) / 1.586);
-                                const defaultBox = {
-                                    x: (1 - boxW) / 2,
-                                    y: (1 - boxH) / 2,
-                                    w: boxW,
-                                    h: boxH
-                                };
-                                const croppedUrl = extractHighResCrop(fullCanvas, defaultBox);
+                                const detectedBox = detectCardInContract(fullCanvas);
+                                const croppedUrl = extractHighResCrop(fullCanvas, detectedBox);
 
                                 const lastCard = cardsData.length > 0 ? cardsData[cardsData.length - 1] : null;
                                 if (lastCard && lastCard.frontCropped && !lastCard.backCropped) {
                                     lastCard.backOriginal = entry.img;
                                     lastCard.backOrigData = entry.dataUrl;
                                     lastCard.backCropped = croppedUrl;
-                                    lastCard.backBox = defaultBox;
+                                    lastCard.backBox = detectedBox;
                                     lastCard.backRot = { base: 0, fine: 0 };
                                 } else {
                                     cardsData.push({
                                         frontOriginal: entry.img,
                                         frontOrigData: entry.dataUrl,
                                         frontCropped: croppedUrl,
-                                        frontBox: defaultBox,
+                                        frontBox: detectedBox,
                                         frontRot: { base: 0, fine: 0 },
                                         backOriginal: null,
                                         backOrigData: null,
@@ -642,7 +860,7 @@
                 updateAngleBadge();
 
                 rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
-                cropBox = savedBox ? JSON.parse(JSON.stringify(savedBox)) : { x: 0.25, y: 0.35, w: 0.50, h: 0.30 };
+                cropBox = savedBox ? JSON.parse(JSON.stringify(savedBox)) : detectCardInContract(rotatedCanvas);
 
                 document.getElementById('cropperModal').style.display = 'flex';
                 resizeCanvasToWorkspace();
@@ -965,6 +1183,31 @@
         window.addEventListener('mouseup', onTouchEnd);
         window.addEventListener('touchend', onTouchEnd);
 
+        function resizeCropBox(delta) {
+            if (!rotatedCanvas) return;
+            const cx = cropBox.x + cropBox.w / 2;
+            const cy = cropBox.y + cropBox.h / 2;
+            const aspect = cropBox.w / cropBox.h;
+
+            let newW = Math.max(0.12, Math.min(0.98, cropBox.w + delta));
+            let newH = newW / aspect;
+
+            if (newH > 0.98) {
+                newH = 0.98;
+                newW = newH * aspect;
+            }
+            if (newH < 0.08) {
+                newH = 0.08;
+                newW = newH * aspect;
+            }
+
+            const newX = Math.max(0, Math.min(1 - newW, cx - newW / 2));
+            const newY = Math.max(0, Math.min(1 - newH, cy - newH / 2));
+
+            cropBox = { x: newX, y: newY, w: newW, h: newH };
+            fitCameraToCropBox(false);
+        }
+
         function onAngleSlide(val) {
             fineAngle = parseFloat(val);
             updateAngleBadge();
@@ -1012,10 +1255,7 @@
             updateAngleBadge();
             if (rawOriginalImage) {
                 rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, 0);
-                const imgRatio = rotatedCanvas.width / rotatedCanvas.height;
-                const boxW = 0.56;
-                const boxH = Math.min(0.65, (boxW * imgRatio) / 1.586);
-                cropBox = { x: (1 - boxW) / 2, y: (1 - boxH) / 2, w: boxW, h: boxH };
+                cropBox = detectCardInContract(rotatedCanvas);
                 fitCameraToCropBox(false);
             }
         }
@@ -1040,14 +1280,134 @@
             renderSheets();
         }
 
-        // عرض أوراق A4 في الواجهة الرئيسية (حتى لو كانت فارغة)
+        // دالة حذف صورة فردية (وش أو ظهر)
+        function deleteSingleImage(rowIndex, side, event) {
+            event.stopPropagation();
+            const item = cardsData[rowIndex];
+            if (!item) return;
+
+            if (side === 'front') {
+                item.frontOriginal = null;
+                item.frontOrigData = null;
+                item.frontCropped = null;
+                item.frontBox = null;
+            } else {
+                item.backOriginal = null;
+                item.backOrigData = null;
+                item.backCropped = null;
+                item.backBox = null;
+            }
+
+            // إذا أصبحت البطاقة فارغة تماماً يتم حذفها من القائمة
+            if (!item.frontCropped && !item.backCropped) {
+                cardsData.splice(rowIndex, 1);
+            }
+
+            saveToStorage();
+            renderSheets();
+        }
+
+        // فتح معرض الصور لاستبدال صورة فردية
+        function triggerReplaceImage(rowIndex, side, event) {
+            event.stopPropagation();
+            replaceTargetIndex = rowIndex;
+            replaceTargetSide = side;
+            document.getElementById('replaceInput').value = null;
+            document.getElementById('replaceInput').click();
+        }
+
+        function handleReplaceFile(input) {
+            const file = input.files[0];
+            if (!file || replaceTargetIndex === -1 || !replaceTargetSide) return;
+
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const img = new Image();
+                img.onload = function() {
+                    const fullCanvas = buildRotatedFullResCanvas(img, 0);
+                    const detectedBox = detectCardInContract(fullCanvas);
+                    const croppedUrl = extractHighResCrop(fullCanvas, detectedBox);
+
+                    const item = cardsData[replaceTargetIndex];
+                    if (replaceTargetSide === 'front') {
+                        item.frontOriginal = img;
+                        item.frontOrigData = ev.target.result;
+                        item.frontCropped = croppedUrl;
+                        item.frontBox = detectedBox;
+                        item.frontRot = { base: 0, fine: 0 };
+                    } else {
+                        item.backOriginal = img;
+                        item.backOrigData = ev.target.result;
+                        item.backCropped = croppedUrl;
+                        item.backBox = detectedBox;
+                        item.backRot = { base: 0, fine: 0 };
+                    }
+
+                    saveToStorage();
+                    renderSheets();
+                    replaceTargetIndex = -1;
+                    replaceTargetSide = null;
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ميزة سحب وإفلات النقل بين المربعات
+        function handleDragStart(e, rowIndex, side) {
+            e.dataTransfer.setData('text/plain', JSON.stringify({ rowIndex, side }));
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDrop(e, targetRowIndex, targetSide) {
+            e.preventDefault();
+            const dataStr = e.dataTransfer.getData('text/plain');
+            if (!dataStr) return;
+            const src = JSON.parse(dataStr);
+
+            if (src.rowIndex === targetRowIndex && src.side === targetSide) return;
+
+            const srcItem = cardsData[src.rowIndex];
+            const targetItem = cardsData[targetRowIndex];
+
+            const srcData = src.side === 'front' ? {
+                orig: srcItem.frontOriginal, origData: srcItem.frontOrigData, cropped: srcItem.frontCropped, box: srcItem.frontBox, rot: srcItem.frontRot
+            } : {
+                orig: srcItem.backOriginal, origData: srcItem.backOrigData, cropped: srcItem.backCropped, box: srcItem.backBox, rot: srcItem.backRot
+            };
+
+            const targetData = targetSide === 'front' ? {
+                orig: targetItem.frontOriginal, origData: targetItem.frontOrigData, cropped: targetItem.frontCropped, box: targetItem.frontBox, rot: targetItem.frontRot
+            } : {
+                orig: targetItem.backOriginal, origData: targetItem.backOrigData, cropped: targetItem.backCropped, box: targetItem.backBox, rot: targetItem.backRot
+            };
+
+            // عملية التبديل (Swap)
+            if (src.side === 'front') {
+                srcItem.frontOriginal = targetData.orig; srcItem.frontOrigData = targetData.origData; srcItem.frontCropped = targetData.cropped; srcItem.frontBox = targetData.box; srcItem.frontRot = targetData.rot;
+            } else {
+                srcItem.backOriginal = targetData.orig; srcItem.backOrigData = targetData.origData; srcItem.backCropped = targetData.cropped; srcItem.backBox = targetData.box; srcItem.backRot = targetData.rot;
+            }
+
+            if (targetSide === 'front') {
+                targetItem.frontOriginal = srcData.orig; targetItem.frontOrigData = srcData.origData; targetItem.frontCropped = srcData.cropped; targetItem.frontBox = srcData.box; targetItem.frontRot = srcData.rot;
+            } else {
+                targetItem.backOriginal = srcData.orig; targetItem.backOrigData = srcData.origData; targetItem.backCropped = srcData.cropped; targetItem.backBox = srcData.box; targetItem.backRot = srcData.rot;
+            }
+
+            saveToStorage();
+            renderSheets();
+        }
+
         function renderSheets() {
             const container = document.getElementById('sheetsContainer');
             const clearSection = document.getElementById('clearSection');
             container.innerHTML = '';
             clearSection.innerHTML = '';
 
-            // إذا كانت القائمة فارغة، نعرض ورقة A4 فارغة واحدة جاهزة في الواجهة
             const totalSheets = cardsData.length === 0 ? 1 : Math.ceil(cardsData.length / 5);
 
             for (let s = 0; s < totalSheets; s++) {
@@ -1078,19 +1438,41 @@
                     const row = document.createElement('div');
                     row.className = 'id-pair-row';
 
+                    // صندوق الوش
                     const frontBox = document.createElement('div');
                     frontBox.className = 'id-box' + (pair && pair.frontCropped ? ' has-img' : '');
+                    frontBox.ondragover = handleDragOver;
+                    frontBox.ondrop = (e) => handleDrop(e, globalIdx, 'front');
+
                     if (pair && pair.frontCropped) {
-                        frontBox.innerHTML = `<img src="${pair.frontCropped}"><span class="tap-hint">تعديل القص</span>`;
+                        frontBox.draggable = true;
+                        frontBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'front');
+                        frontBox.innerHTML = `
+                            <img src="${pair.frontCropped}">
+                            <span class="tap-hint">تعديل القص</span>
+                            <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'front', event)" title="حذف">✕</button>
+                            <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'front', event)" title="استبدال">+</button>
+                        `;
                         frontBox.onclick = () => openCropper(globalIdx, 'front');
                     } else {
                         frontBox.innerHTML = `<span>وش البطاقة</span>`;
                     }
 
+                    // صندوق الظهر
                     const backBox = document.createElement('div');
                     backBox.className = 'id-box' + (pair && pair.backCropped ? ' has-img' : '');
+                    backBox.ondragover = handleDragOver;
+                    backBox.ondrop = (e) => handleDrop(e, globalIdx, 'back');
+
                     if (pair && pair.backCropped) {
-                        backBox.innerHTML = `<img src="${pair.backCropped}"><span class="tap-hint">تعديل القص</span>`;
+                        backBox.draggable = true;
+                        backBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'back');
+                        backBox.innerHTML = `
+                            <img src="${pair.backCropped}">
+                            <span class="tap-hint">تعديل القص</span>
+                            <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'back', event)" title="حذف">✕</button>
+                            <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'back', event)" title="استبدال">+</button>
+                        `;
                         backBox.onclick = () => openCropper(globalIdx, 'back');
                     } else {
                         backBox.innerHTML = `<span>ظهر البطاقة</span>`;
@@ -1114,7 +1496,11 @@
         async function exportSheet(sheetId, pageNum, shareWA) {
             const el = document.getElementById(sheetId);
             const hints = el.querySelectorAll('.tap-hint');
+            const dels = el.querySelectorAll('.box-btn-del');
+            const reps = el.querySelectorAll('.box-btn-replace');
             hints.forEach(h => h.style.display = 'none');
+            dels.forEach(d => d.style.display = 'none');
+            reps.forEach(re => re.style.display = 'none');
 
             try {
                 const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
@@ -1133,6 +1519,8 @@
                 alert('حدث خطأ أثناء التصدير، يمكنك استخدام زر طباعة PDF.');
             } finally {
                 hints.forEach(h => h.style.display = 'block');
+                dels.forEach(d => d.style.display = 'flex');
+                reps.forEach(re => re.style.display = 'flex');
             }
         }
     </script>
