@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>مُنسق وقاصّ البطاقات الاحترافي</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --accent: #f5b400;
+            --dark-bg: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-main);
+            padding: 12px;
+            padding-bottom: 60px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        header h1 {
+            color: var(--accent);
+            font-size: 1.25rem;
+            margin-bottom: 4px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+
+        .upload-section {
+            display: block;
+            background: linear-gradient(135deg, #f5b400, #d97706);
+            color: #000;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 15px;
+            position: relative;
+            cursor: pointer;
+            font-weight: 800;
+            box-shadow: 0 4px 12px rgba(245, 180, 0, 0.3);
+        }
+
+        .upload-section input[type="file"] {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        /* شاشة المحرر الاحترافية */
+        #cropperModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #f4f4f5;
+            color: #18181b;
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .editor-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: #ffffff;
+            border-bottom: 1px solid #e4e4e7;
+            z-index: 10;
+        }
+
+        .btn-top-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: #f4f4f5;
+            color: #18181b;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .editor-top-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #3f3f46;
+        }
+
+        .btn-top-save {
+            background: var(--accent);
+            color: #000000;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 0.9rem;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(245, 180, 0, 0.35);
+        }
+
+        .editor-workspace {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background: #e4e4e7;
+        }
+
+        #cropCanvas {
+            display: block;
+            touch-action: none;
+        }
+
+        .editor-bottom-panel {
+            background: #ffffff;
+            padding: 10px 14px 16px;
+            border-top: 1px solid #e4e4e7;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .reset-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            height: 24px;
+        }
+
+        .btn-reset-all {
+            background: none;
+            border: none;
+            color: #52525b;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 2px 10px;
+        }
+
+        .ruler-container {
+            position: relative;
+            width: 100%;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ruler-ticks {
+            position: absolute;
+            inset: 6px 12px;
+            background-image: repeating-linear-gradient(
+                to right,
+                #a1a1aa 0px,
+                #a1a1aa 1.5px,
+                transparent 1.5px,
+                transparent 10px
+            );
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .ruler-center-mark {
+            position: absolute;
+            top: 2px;
+            bottom: 2px;
+            left: 50%;
+            width: 2.5px;
+            background: var(--accent);
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #angleSlider {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            position: relative;
+            z-index: 3;
+            cursor: pointer;
+        }
+
+        #angleSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 28px;
+            border-radius: 4px;
+            background: var(--accent);
+            border: 2px solid #ffffff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+        }
+
+        .quick-tools-row {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-top: 2px;
+        }
+
+        .tool-circle-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #3f3f46;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .circle-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #f4f4f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #18181b;
+            transition: background 0.15s;
+        }
+
+        .tool-circle-item:active .circle-icon {
+            background: #e4e4e7;
+        }
+
+        .circle-icon.active-angle {
+            background: var(--accent);
+            color: #000000;
+        }
+
+        /* تنسيق أوراق الطباعة A4 */
+        .page-wrapper { margin-bottom: 25px; }
+
+        .page-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 10px 12px;
+            border-radius: 10px 10px 0 0;
+            border: 1px solid #333;
+            border-bottom: none;
+        }
+
+        .page-toolbar span {
+            font-weight: bold;
+            color: var(--accent);
+            font-size: 0.9rem;
+        }
+
+        .toolbar-btns { display: flex; gap: 6px; }
+
+        .tool-btn {
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-save { background: #2563eb; }
+        .btn-wa { background: #16a34a; }
+        .btn-pdf { background: #dc2626; }
+        .btn-clear-all {
+            background: #dc2626;
+            margin-top: 15px;
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .a4-sheet {
+            background: #ffffff;
+            width: 100%;
+            max-width: 794px;
+            margin: 0 auto;
+            padding: 6px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .id-pair-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            width: 100%;
+        }
+
+        .id-box {
+            width: 100%;
+            aspect-ratio: 1.586 / 1;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .id-box.has-img { border: 1px solid #e2e8f0; }
+
+        .id-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            display: block;
+        }
+
+        .tap-hint {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: rgba(0,0,0,0.72);
+            color: #fff;
+            font-size: 0.65rem;
+            padding: 3px 7px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        @media print {
+            body { background: white; padding: 0; }
+            header, .upload-section, .page-toolbar, #cropperModal, .tap-hint, .btn-clear-all { display: none !important; }
+            .page-wrapper { margin: 0; page-break-after: always; }
+            .a4-sheet { box-shadow: none; width: 210mm; height: 297mm; padding: 5mm; gap: 4mm; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>مُنسق وقاصّ البطاقات الاحترافي</h1>
+        <p>عرض ورقة A4 فارغة فوراً في الواجهة + اقتصاص احترافي وترتيب تسلسلي</p>
+    </header>
+
+    <label class="upload-section" for="galleryInput">
+        🖼️ اختيار صور البطاقات / العقود من المعرض (بالترتيب: وش ثم ظهر)
+        <input type="file" id="galleryInput" accept="image/*" multiple onclick="this.value=null">
+    </label>
+
+    <div id="sheetsContainer"></div>
+    <div id="clearSection" style="max-width: 794px; margin: 0 auto;"></div>
+
+    <!-- نافذة الاقتصاص الاحترافية -->
+    <div id="cropperModal">
+        <div class="editor-top-bar">
+            <button class="btn-top-close" onclick="closeCropper()" title="إلغاء">✕</button>
+            <span class="editor-top-title">اسحب الزوايا أو الأضلاع لتحديد البطاقة</span>
+            <button class="btn-top-save" onclick="saveCroppedResult()">حفظ</button>
+        </div>
+
+        <div class="editor-workspace" id="workspaceArea">
+            <canvas id="cropCanvas"></canvas>
+        </div>
+
+        <div class="editor-bottom-panel">
+            <div class="reset-row">
+                <button class="btn-reset-all" onclick="resetCropperState()">إعادة الضبط</button>
+            </div>
+
+            <div class="ruler-container">
+                <div class="ruler-ticks"></div>
+                <div class="ruler-center-mark"></div>
+                <input type="range" id="angleSlider" min="-45" max="45" value="0" step="0.5" oninput="onAngleSlide(this.value)">
+            </div>
+
+            <div class="quick-tools-row">
+                <button class="tool-circle-item" onclick="rotate90(-90)">
+                    <div class="circle-icon">↺</div>
+                    <span>تدوير يسار</span>
+                </button>
+                <button class="tool-circle-item" onclick="rotate90(90)">
+                    <div class="circle-icon">↻</div>
+                    <span>تدوير يمين</span>
+                </button>
+                <button class="tool-circle-item" onclick="resetZoomView()">
+                    <div class="circle-icon">🔍</div>
+                    <span>عرض كامل</span>
+                </button>
+                <button class="tool-circle-item" onclick="toggleAspectLock()">
+                    <div class="circle-icon" id="ratioIcon">🪪</div>
+                    <span id="ratioLabel">نسبة البطاقة</span>
+                </button>
+                <div class="tool-circle-item">
+                    <div class="circle-icon active-angle" id="angleBadge">0°</div>
+                    <span>تدوير</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cardsData = [];
+        let activeRowIndex = -1;
+        let activeSide = 'front';
+
+        let rawOriginalImage = null;
+        let rotatedCanvas = null;
+        let rotationDeg = 0;
+        let fineAngle = 0;
+        let base90Angle = 0;
+        let lockIdRatio = false;
+
+        let cropBox = { x: 0.25, y: 0.35, w: 0.50, h: 0.30 };
+
+        let viewCam = { scale: 1, offsetX: 0, offsetY: 0 };
+        let targetCam = { scale: 1, offsetX: 0, offsetY: 0 };
+        let animFrameId = null;
+
+        let activeHandle = null;
+        let dragStart = { x: 0, y: 0 };
+        let initialBox = null;
+
+        const canvas = document.getElementById('cropCanvas');
+        const ctx = canvas.getContext('2d');
+        const workspace = document.getElementById('workspaceArea');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('pro_id_cards_v21');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    cardsData = parsed.map(item => {
+                        let fImg = null, bImg = null;
+                        if (item.frontOrigData) { fImg = new Image(); fImg.src = item.frontOrigData; }
+                        if (item.backOrigData) { bImg = new Image(); bImg.src = item.backOrigData; }
+                        return {
+                            frontOriginal: fImg,
+                            frontOrigData: item.frontOrigData,
+                            frontCropped: item.frontCropped,
+                            frontBox: item.frontBox,
+                            frontRot: item.frontRot || { base: 0, fine: 0 },
+                            backOriginal: bImg,
+                            backOrigData: item.backOrigData,
+                            backCropped: item.backCropped,
+                            backBox: item.backBox,
+                            backRot: item.backRot || { base: 0, fine: 0 }
+                        };
+                    });
+                } catch (e) { console.error(e); }
+            }
+            // عرض الورقة فوراً في الواجهة حتى لو كانت قائمة البطاقات فارغة
+            renderSheets();
+        });
+
+        function saveToStorage() {
+            try {
+                const cleanData = cardsData.map(item => ({
+                    frontOrigData: item.frontOrigData,
+                    frontCropped: item.frontCropped,
+                    frontBox: item.frontBox,
+                    frontRot: item.frontRot,
+                    backOrigData: item.backOrigData,
+                    backCropped: item.backCropped,
+                    backBox: item.backBox,
+                    backRot: item.backRot
+                }));
+                localStorage.setItem('pro_id_cards_v21', JSON.stringify(cleanData));
+            } catch (e) {
+                console.warn('تم تجاوز سعة التخزين المؤقت للمتصفح.');
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('هل تريد مسح جميع البطاقات والبدء من جديد؟')) {
+                localStorage.removeItem('pro_id_cards_v21');
+                cardsData = [];
+                renderSheets();
+            }
+        }
+
+        function buildRotatedFullResCanvas(img, totalDegrees) {
+            const rad = (totalDegrees * Math.PI) / 180;
+            const sin = Math.abs(Math.sin(rad));
+            const cos = Math.abs(Math.cos(rad));
+            const newW = Math.round(img.naturalWidth * cos + img.naturalHeight * sin);
+            const newH = Math.round(img.naturalWidth * sin + img.naturalHeight * cos);
+
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = newW;
+            offCanvas.height = newH;
+            const offCtx = offCanvas.getContext('2d');
+            offCtx.imageSmoothingEnabled = true;
+            offCtx.imageSmoothingQuality = 'high';
+
+            offCtx.translate(newW / 2, newH / 2);
+            offCtx.rotate(rad);
+            offCtx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+            return offCanvas;
+        }
+
+        function extractHighResCrop(sourceCanvas, box) {
+            const sx = Math.max(0, Math.round(box.x * sourceCanvas.width));
+            const sy = Math.max(0, Math.round(box.y * sourceCanvas.height));
+            const sw = Math.min(sourceCanvas.width - sx, Math.round(box.w * sourceCanvas.width));
+            const sh = Math.min(sourceCanvas.height - sy, Math.round(box.h * sourceCanvas.height));
+
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width = Math.max(sw, 1000);
+            outCanvas.height = Math.round(outCanvas.width / 1.586);
+
+            const outCtx = outCanvas.getContext('2d');
+            outCtx.imageSmoothingEnabled = true;
+            outCtx.imageSmoothingQuality = 'high';
+            outCtx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, outCanvas.width, outCanvas.height);
+
+            return outCanvas.toDataURL('image/jpeg', 0.96);
+        }
+
+        document.getElementById('galleryInput').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files || []);
+            if (!files.length) return;
+
+            let loadedCount = 0;
+            const loadedImages = new Array(files.length);
+
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const img = new Image();
+                    img.onload = function() {
+                        loadedImages[index] = { img: img, dataUrl: ev.target.result };
+                        loadedCount++;
+
+                        if (loadedCount === files.length) {
+                            loadedImages.forEach(entry => {
+                                const fullCanvas = buildRotatedFullResCanvas(entry.img, 0);
+                                const imgRatio = fullCanvas.width / fullCanvas.height;
+                                const boxW = 0.56;
+                                const boxH = Math.min(0.65, (boxW * imgRatio) / 1.586);
+                                const defaultBox = {
+                                    x: (1 - boxW) / 2,
+                                    y: (1 - boxH) / 2,
+                                    w: boxW,
+                                    h: boxH
+                                };
+                                const croppedUrl = extractHighResCrop(fullCanvas, defaultBox);
+
+                                const lastCard = cardsData.length > 0 ? cardsData[cardsData.length - 1] : null;
+                                if (lastCard && lastCard.frontCropped && !lastCard.backCropped) {
+                                    lastCard.backOriginal = entry.img;
+                                    lastCard.backOrigData = entry.dataUrl;
+                                    lastCard.backCropped = croppedUrl;
+                                    lastCard.backBox = defaultBox;
+                                    lastCard.backRot = { base: 0, fine: 0 };
+                                } else {
+                                    cardsData.push({
+                                        frontOriginal: entry.img,
+                                        frontOrigData: entry.dataUrl,
+                                        frontCropped: croppedUrl,
+                                        frontBox: defaultBox,
+                                        frontRot: { base: 0, fine: 0 },
+                                        backOriginal: null,
+                                        backOrigData: null,
+                                        backCropped: null,
+                                        backBox: null,
+                                        backRot: { base: 0, fine: 0 }
+                                    });
+                                }
+                            });
+
+                            saveToStorage();
+                            renderSheets();
+                        }
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+            this.value = '';
+        });
+
+        function openCropper(rowIndex, side) {
+            const item = cardsData[rowIndex];
+            if (!item) return;
+
+            activeRowIndex = rowIndex;
+            activeSide = side;
+
+            let imgObj = side === 'front' ? item.frontOriginal : item.backOriginal;
+            const origData = side === 'front' ? item.frontOrigData : item.backOrigData;
+            const savedBox = side === 'front' ? item.frontBox : item.backBox;
+            const savedRot = side === 'front' ? item.frontRot : item.backRot;
+
+            const startWithImage = (loadedImg) => {
+                rawOriginalImage = loadedImg;
+                base90Angle = savedRot ? savedRot.base : 0;
+                fineAngle = savedRot ? savedRot.fine : 0;
+                document.getElementById('angleSlider').value = fineAngle;
+                updateAngleBadge();
+
+                rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
+                cropBox = savedBox ? JSON.parse(JSON.stringify(savedBox)) : { x: 0.25, y: 0.35, w: 0.50, h: 0.30 };
+
+                document.getElementById('cropperModal').style.display = 'flex';
+                resizeCanvasToWorkspace();
+                fitCameraToCropBox(true);
+            };
+
+            if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
+                startWithImage(imgObj);
+            } else if (origData) {
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    if (side === 'front') item.frontOriginal = tempImg;
+                    else item.backOriginal = tempImg;
+                    startWithImage(tempImg);
+                };
+                tempImg.src = origData;
+            }
+        }
+
+        function closeCropper() {
+            document.getElementById('cropperModal').style.display = 'none';
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+        }
+
+        function resizeCanvasToWorkspace() {
+            canvas.width = workspace.clientWidth;
+            canvas.height = workspace.clientHeight;
+        }
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('cropperModal').style.display === 'flex') {
+                resizeCanvasToWorkspace();
+                fitCameraToCropBox(true);
+            }
+        });
+
+        function getBaseImageRect() {
+            if (!rotatedCanvas) return { x: 0, y: 0, w: 100, h: 100 };
+            const pad = 28;
+            const availW = canvas.width - pad * 2;
+            const availH = canvas.height - pad * 2;
+            const scale = Math.min(availW / rotatedCanvas.width, availH / rotatedCanvas.height);
+            const w = rotatedCanvas.width * scale;
+            const h = rotatedCanvas.height * scale;
+            return {
+                x: (canvas.width - w) / 2,
+                y: (canvas.height - h) / 2,
+                w: w,
+                h: h
+            };
+        }
+
+        function fitCameraToCropBox(instant = false) {
+            const base = getBaseImageRect();
+            const boxPxW = cropBox.w * base.w;
+            const boxPxH = cropBox.h * base.h;
+            const boxCenterX = base.x + (cropBox.x + cropBox.w / 2) * base.w;
+            const boxCenterY = base.y + (cropBox.y + cropBox.h / 2) * base.h;
+
+            const pad = 55;
+            const maxW = canvas.width - pad * 2;
+            const maxH = canvas.height - pad * 2;
+
+            let desiredScale = Math.min(maxW / boxPxW, maxH / boxPxH);
+            desiredScale = Math.max(1, Math.min(desiredScale, 3.8));
+
+            const screenCenterX = canvas.width / 2;
+            const screenCenterY = canvas.height / 2;
+
+            targetCam = {
+                scale: desiredScale,
+                offsetX: screenCenterX - boxCenterX * desiredScale,
+                offsetY: screenCenterY - boxCenterY * desiredScale
+            };
+
+            if (instant) {
+                viewCam = { ...targetCam };
+                renderCropperCanvas();
+            } else {
+                animateCamera();
+            }
+        }
+
+        function resetZoomView() {
+            targetCam = { scale: 1, offsetX: 0, offsetY: 0 };
+            animateCamera();
+        }
+
+        function animateCamera() {
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            const step = () => {
+                const ease = 0.22;
+                viewCam.scale += (targetCam.scale - viewCam.scale) * ease;
+                viewCam.offsetX += (targetCam.offsetX - viewCam.offsetX) * ease;
+                viewCam.offsetY += (targetCam.offsetY - viewCam.offsetY) * ease;
+
+                renderCropperCanvas();
+
+                if (
+                    Math.abs(targetCam.scale - viewCam.scale) > 0.002 ||
+                    Math.abs(targetCam.offsetX - viewCam.offsetX) > 0.2 ||
+                    Math.abs(targetCam.offsetY - viewCam.offsetY) > 0.2
+                ) {
+                    animFrameId = requestAnimationFrame(step);
+                } else {
+                    viewCam = { ...targetCam };
+                    renderCropperCanvas();
+                }
+            };
+            animFrameId = requestAnimationFrame(step);
+        }
+
+        function renderCropperCanvas() {
+            if (!rotatedCanvas) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const base = getBaseImageRect();
+
+            ctx.save();
+            ctx.translate(viewCam.offsetX, viewCam.offsetY);
+            ctx.scale(viewCam.scale, viewCam.scale);
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(rotatedCanvas, base.x, base.y, base.w, base.h);
+
+            const bx = base.x + cropBox.x * base.w;
+            const by = base.y + cropBox.y * base.h;
+            const bw = cropBox.w * base.w;
+            const bh = cropBox.h * base.h;
+
+            ctx.fillStyle = 'rgba(244, 244, 245, 0.72)';
+            ctx.beginPath();
+            ctx.rect(base.x - 2000, base.y - 2000, base.w + 4000, base.h + 4000);
+            ctx.rect(bx, by, bw, bh);
+            ctx.fill('evenodd');
+
+            const invScale = 1 / viewCam.scale;
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.lineWidth = 1 * invScale;
+            ctx.strokeRect(bx, by, bw, bh);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.lineWidth = 1 * invScale;
+            ctx.beginPath();
+            ctx.moveTo(bx + bw / 3, by);
+            ctx.lineTo(bx + bw / 3, by + bh);
+            ctx.moveTo(bx + (bw * 2) / 3, by);
+            ctx.lineTo(bx + (bw * 2) / 3, by + bh);
+            ctx.moveTo(bx, by + bh / 3);
+            ctx.lineTo(bx + bw, by + bh / 3);
+            ctx.moveTo(bx, by + (bh * 2) / 3);
+            ctx.lineTo(bx + bw, by + (bh * 2) / 3);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#111111';
+            ctx.lineWidth = 4.2 * invScale;
+            ctx.lineCap = 'square';
+
+            const cornerLen = Math.min(22 * invScale, bw * 0.22, bh * 0.22);
+            const barLen = Math.min(24 * invScale, bw * 0.25, bh * 0.25);
+
+            ctx.beginPath();
+            ctx.moveTo(bx, by + cornerLen);
+            ctx.lineTo(bx, by);
+            ctx.lineTo(bx + cornerLen, by);
+
+            ctx.moveTo(bx + bw - cornerLen, by);
+            ctx.lineTo(bx + bw, by);
+            ctx.lineTo(bx + bw, by + cornerLen);
+
+            ctx.moveTo(bx + bw, by + bh - cornerLen);
+            ctx.lineTo(bx + bw, by + bh);
+            ctx.lineTo(bx + bw - cornerLen, by + bh);
+
+            ctx.moveTo(bx + cornerLen, by + bh);
+            ctx.lineTo(bx, by + bh);
+            ctx.lineTo(bx, by + bh - cornerLen);
+
+            ctx.moveTo(bx + bw / 2 - barLen / 2, by);
+            ctx.lineTo(bx + bw / 2 + barLen / 2, by);
+
+            ctx.moveTo(bx + bw / 2 - barLen / 2, by + bh);
+            ctx.lineTo(bx + bw / 2 + barLen / 2, by + bh);
+
+            ctx.moveTo(bx, by + bh / 2 - barLen / 2);
+            ctx.lineTo(bx, by + bh / 2 + barLen / 2);
+
+            ctx.moveTo(bx + bw, by + bh / 2 - barLen / 2);
+            ctx.lineTo(bx + bw, by + bh / 2 + barLen / 2);
+
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function screenToImageNorm(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const sx = clientX - rect.left;
+            const sy = clientY - rect.top;
+
+            const wx = (sx - viewCam.offsetX) / viewCam.scale;
+            const wy = (sy - viewCam.offsetY) / viewCam.scale;
+
+            const base = getBaseImageRect();
+            return {
+                x: (wx - base.x) / base.w,
+                y: (wy - base.y) / base.h,
+                wx: wx,
+                wy: wy
+            };
+        }
+
+        function onTouchStart(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const pt = screenToImageNorm(clientX, clientY);
+            const base = getBaseImageRect();
+
+            const bx = base.x + cropBox.x * base.w;
+            const by = base.y + cropBox.y * base.h;
+            const bw = cropBox.w * base.w;
+            const bh = cropBox.h * base.h;
+
+            const hitRadius = 26 / viewCam.scale;
+
+            const handles = [
+                { name: 'tl', x: bx, y: by },
+                { name: 'tr', x: bx + bw, y: by },
+                { name: 'br', x: bx + bw, y: by + bh },
+                { name: 'bl', x: bx, y: by + bh },
+                { name: 't',  x: bx + bw / 2, y: by },
+                { name: 'b',  x: bx + bw / 2, y: by + bh },
+                { name: 'l',  x: bx, y: by + bh / 2 },
+                { name: 'r',  x: bx + bw, y: by + bh / 2 }
+            ];
+
+            let closest = null;
+            let minDist = hitRadius;
+            handles.forEach(h => {
+                const d = Math.hypot(pt.wx - h.x, pt.wy - h.y);
+                if (d < minDist) {
+                    minDist = d;
+                    closest = h.name;
+                }
+            });
+
+            if (closest) {
+                activeHandle = closest;
+            } else if (pt.wx >= bx && pt.wx <= bx + bw && pt.wy >= by && pt.wy <= by + bh) {
+                activeHandle = 'move';
+            } else {
+                activeHandle = null;
+                return;
+            }
+
+            dragStart = { x: pt.x, y: pt.y };
+            initialBox = { ...cropBox };
+        }
+
+        function onTouchMove(e) {
+            if (!activeHandle) return;
+            e.preventDefault();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const pt = screenToImageNorm(clientX, clientY);
+
+            const dx = pt.x - dragStart.x;
+            const dy = pt.y - dragStart.y;
+            const minSize = 0.08;
+
+            let { x, y, w, h } = initialBox;
+
+            if (activeHandle === 'move') {
+                x = Math.max(0, Math.min(1 - w, x + dx));
+                y = Math.max(0, Math.min(1 - h, y + dy));
+            } else {
+                if (activeHandle.includes('l')) {
+                    const newX = Math.max(0, Math.min(x + w - minSize, x + dx));
+                    w = (x + w) - newX;
+                    x = newX;
+                }
+                if (activeHandle.includes('r')) {
+                    w = Math.max(minSize, Math.min(1 - x, w + dx));
+                }
+                if (activeHandle.includes('t')) {
+                    const newY = Math.max(0, Math.min(y + h - minSize, y + dy));
+                    h = (y + h) - newY;
+                    y = newY;
+                }
+                if (activeHandle.includes('b')) {
+                    h = Math.max(minSize, Math.min(1 - y, h + dy));
+                }
+
+                if (lockIdRatio && rotatedCanvas) {
+                    const imgAspect = rotatedCanvas.width / rotatedCanvas.height;
+                    const targetH = (w * imgAspect) / 1.586;
+                    if (y + targetH <= 1) {
+                        h = targetH;
+                    }
+                }
+            }
+
+            cropBox = { x, y, w, h };
+            renderCropperCanvas();
+        }
+
+        function onTouchEnd() {
+            if (activeHandle) {
+                activeHandle = null;
+                fitCameraToCropBox(false);
+            }
+        }
+
+        canvas.addEventListener('mousedown', onTouchStart);
+        canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+        window.addEventListener('mousemove', onTouchMove);
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('mouseup', onTouchEnd);
+        window.addEventListener('touchend', onTouchEnd);
+
+        function onAngleSlide(val) {
+            fineAngle = parseFloat(val);
+            updateAngleBadge();
+            if (!rawOriginalImage) return;
+            rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
+            renderCropperCanvas();
+        }
+
+        function rotate90(delta) {
+            base90Angle = (base90Angle + delta + 360) % 360;
+            if (!rawOriginalImage) return;
+            rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
+            fitCameraToCropBox(true);
+        }
+
+        function updateAngleBadge() {
+            const badge = document.getElementById('angleBadge');
+            badge.innerText = (fineAngle > 0 ? '+' : '') + Math.round(fineAngle) + '°';
+        }
+
+        function toggleAspectLock() {
+            lockIdRatio = !lockIdRatio;
+            const icon = document.getElementById('ratioIcon');
+            const label = document.getElementById('ratioLabel');
+            if (lockIdRatio) {
+                icon.style.background = '#f5b400';
+                icon.style.color = '#000';
+                label.innerText = 'نسبة مقفلة';
+                if (rotatedCanvas) {
+                    const imgAspect = rotatedCanvas.width / rotatedCanvas.height;
+                    cropBox.h = Math.min(1 - cropBox.y, (cropBox.w * imgAspect) / 1.586);
+                    fitCameraToCropBox(false);
+                }
+            } else {
+                icon.style.background = '#f4f4f5';
+                icon.style.color = '#18181b';
+                label.innerText = 'نسبة البطاقة';
+            }
+        }
+
+        function resetCropperState() {
+            base90Angle = 0;
+            fineAngle = 0;
+            document.getElementById('angleSlider').value = 0;
+            updateAngleBadge();
+            if (rawOriginalImage) {
+                rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, 0);
+                const imgRatio = rotatedCanvas.width / rotatedCanvas.height;
+                const boxW = 0.56;
+                const boxH = Math.min(0.65, (boxW * imgRatio) / 1.586);
+                cropBox = { x: (1 - boxW) / 2, y: (1 - boxH) / 2, w: boxW, h: boxH };
+                fitCameraToCropBox(false);
+            }
+        }
+
+        function saveCroppedResult() {
+            if (activeRowIndex === -1 || !rotatedCanvas) return;
+            const item = cardsData[activeRowIndex];
+            const highResUrl = extractHighResCrop(rotatedCanvas, cropBox);
+
+            if (activeSide === 'front') {
+                item.frontCropped = highResUrl;
+                item.frontBox = { ...cropBox };
+                item.frontRot = { base: base90Angle, fine: fineAngle };
+            } else {
+                item.backCropped = highResUrl;
+                item.backBox = { ...cropBox };
+                item.backRot = { base: base90Angle, fine: fineAngle };
+            }
+
+            closeCropper();
+            saveToStorage();
+            renderSheets();
+        }
+
+        // عرض أوراق A4 في الواجهة الرئيسية (حتى لو كانت فارغة)
+        function renderSheets() {
+            const container = document.getElementById('sheetsContainer');
+            const clearSection = document.getElementById('clearSection');
+            container.innerHTML = '';
+            clearSection.innerHTML = '';
+
+            // إذا كانت القائمة فارغة، نعرض ورقة A4 فارغة واحدة جاهزة في الواجهة
+            const totalSheets = cardsData.length === 0 ? 1 : Math.ceil(cardsData.length / 5);
+
+            for (let s = 0; s < totalSheets; s++) {
+                const slice = cardsData.slice(s * 5, (s + 1) * 5);
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'page-wrapper';
+
+                const toolbar = document.createElement('div');
+                toolbar.className = 'page-toolbar';
+                toolbar.innerHTML = `
+                    <span>ورقة طباعة (${s + 1}) - A4</span>
+                    <div class="toolbar-btns">
+                        <button class="tool-btn btn-save" onclick="exportSheet('sheet-${s}', ${s + 1}, false)">💾 حفظ صورة</button>
+                        <button class="tool-btn btn-wa" onclick="exportSheet('sheet-${s}', ${s + 1}, true)">📲 مشاركة واتس</button>
+                        <button class="tool-btn btn-pdf" onclick="window.print()">🖨️ طباعة PDF</button>
+                    </div>
+                `;
+
+                const sheet = document.createElement('div');
+                sheet.className = 'a4-sheet';
+                sheet.id = `sheet-${s}`;
+
+                for (let r = 0; r < 5; r++) {
+                    const pair = slice[r];
+                    const globalIdx = (s * 5) + r;
+
+                    const row = document.createElement('div');
+                    row.className = 'id-pair-row';
+
+                    const frontBox = document.createElement('div');
+                    frontBox.className = 'id-box' + (pair && pair.frontCropped ? ' has-img' : '');
+                    if (pair && pair.frontCropped) {
+                        frontBox.innerHTML = `<img src="${pair.frontCropped}"><span class="tap-hint">تعديل القص</span>`;
+                        frontBox.onclick = () => openCropper(globalIdx, 'front');
+                    } else {
+                        frontBox.innerHTML = `<span>وش البطاقة</span>`;
+                    }
+
+                    const backBox = document.createElement('div');
+                    backBox.className = 'id-box' + (pair && pair.backCropped ? ' has-img' : '');
+                    if (pair && pair.backCropped) {
+                        backBox.innerHTML = `<img src="${pair.backCropped}"><span class="tap-hint">تعديل القص</span>`;
+                        backBox.onclick = () => openCropper(globalIdx, 'back');
+                    } else {
+                        backBox.innerHTML = `<span>ظهر البطاقة</span>`;
+                    }
+
+                    row.appendChild(frontBox);
+                    row.appendChild(backBox);
+                    sheet.appendChild(row);
+                }
+
+                wrapper.appendChild(toolbar);
+                wrapper.appendChild(sheet);
+                container.appendChild(wrapper);
+            }
+
+            if (cardsData.length > 0) {
+                clearSection.innerHTML = `<button class="btn-clear-all" onclick="clearAllData()">🗑️ مسح الكل والبدء من جديد</button>`;
+            }
+        }
+
+        async function exportSheet(sheetId, pageNum, shareWA) {
+            const el = document.getElementById(sheetId);
+            const hints = el.querySelectorAll('.tap-hint');
+            hints.forEach(h => h.style.display = 'none');
+
+            try {
+                const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
+                canvas.toBlob(async function(blob) {
+                    const file = new File([blob], `بطاقات_ورقة_${pageNum}.jpg`, { type: 'image/jpeg' });
+                    if (shareWA && navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: `ورقة طباعة ${pageNum}` });
+                    } else {
+                        const link = document.createElement('a');
+                        link.download = file.name;
+                        link.href = URL.createObjectURL(blob);
+                        link.click();
+                    }
+                }, 'image/jpeg', 0.96);
+            } catch (err) {
+                alert('حدث خطأ أثناء التصدير، يمكنك استخدام زر طباعة PDF.');
+            } finally {
+                hints.forEach(h => h.style.display = 'block');
+            }
+        }
+    </script>
+</body>
+</html>
