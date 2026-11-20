@@ -105,7 +105,8 @@
         .btn-g-paste { background: #4b5563; opacity: 0.85; }
         .btn-g-paste.ready { background: #16a34a; opacity: 1; }
         .btn-g-enhance { background: #0d9488; }
-        .btn-g-enhance.busy { opacity: 0.7; pointer-events: none; }
+        .btn-g-enhance.busy,
+        .btn-g-save.busy { opacity: 0.7; pointer-events: none; }
         .btn-g-save { background: #2563eb; grid-column: span 3; }
 
         .move-mode-banner {
@@ -515,6 +516,31 @@
             background: #f0fdf4;
         }
 
+        .empty-slot-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #64748b;
+            pointer-events: none;
+        }
+
+        .empty-slot-plus {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #16a34a;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+        }
+
         .id-box .slot-stage {
             width: 100%;
             height: 100%;
@@ -561,11 +587,11 @@
             right: 4px;
             width: 22px;
             height: 22px;
-            background: rgba(22, 163, 74, 0.9);
+            background: rgba(22, 163, 74, 0.92);
             color: white;
             border-radius: 50%;
             border: none;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: bold;
             display: flex;
             align-items: center;
@@ -621,7 +647,7 @@
         <button class="btn-g-action btn-g-copy" id="globalCopyBtn" onclick="globalCopyFormat()">🎨 نسخ التنسيق</button>
         <button class="btn-g-action btn-g-paste" id="globalPasteBtn" onclick="globalPasteFormat()">📌 لصق التنسيق</button>
         <button class="btn-g-action btn-g-enhance" id="globalEnhanceBtn" onclick="globalEnhanceAllCards()">✨ تحسين</button>
-        <button class="btn-g-action btn-g-save" onclick="manualSaveWork()">💾 حفظ العمل يدوياً</button>
+        <button class="btn-g-action btn-g-save" id="globalSaveAllBtn" onclick="manualSaveWork()">💾 حفظ العمل يدوياً</button>
     </div>
 
     <div class="move-mode-banner" id="moveModeBanner">
@@ -712,7 +738,7 @@
             br: { x: 1, y: 1 },
             bl: { x: 0, y: 1 }
         };
-        const STORAGE_KEY = 'pro_id_cards_v58';
+        const STORAGE_KEY = 'pro_id_cards_v59';
 
         let cardsData = [];
         let activeRowIndex = -1;
@@ -739,7 +765,7 @@
         };
 
         let pendingResultUrl = null;
-        let enhanceEnabled = true;
+        let enhanceEnabled = false;
 
         let activeHandle = null;
         let dragStart = { x: 0, y: 0 };
@@ -866,7 +892,10 @@
                 return;
             }
 
-            if (!hasImg) return;
+            if (!hasImg) {
+                triggerReplaceImage(rowIndex, side, event);
+                return;
+            }
 
             const now = Date.now();
             const isDoubleTap = (
@@ -1275,9 +1304,88 @@
             }
         }
 
-        function manualSaveWork() {
+        function getActiveSheetIndices() {
+            const totalSheets = Math.max(1, Math.ceil(cardsData.filter(i => i.frontCropped || i.backCropped).length / 5) + 1);
+            const indices = [];
+            for (let s = 0; s < totalSheets; s++) {
+                const slice = cardsData.slice(s * 5, (s + 1) * 5);
+                if (s > 0 && slice.every(i => !i.frontCropped && !i.backCropped)) continue;
+                if (slice.some(i => i.frontCropped || i.backCropped)) {
+                    indices.push(s);
+                }
+            }
+            return indices;
+        }
+
+        function renderSheetToBlob(sheetEl) {
+            return new Promise((resolve, reject) => {
+                const dels = sheetEl.querySelectorAll('.box-btn-del');
+                const reps = sheetEl.querySelectorAll('.box-btn-replace');
+                dels.forEach(d => d.style.display = 'none');
+                reps.forEach(re => re.style.display = 'none');
+
+                html2canvas(sheetEl, { scale: 2.5, backgroundColor: '#ffffff', useCORS: true })
+                    .then(canvasEl => {
+                        canvasEl.toBlob(blob => {
+                            dels.forEach(d => d.style.display = 'flex');
+                            reps.forEach(re => re.style.display = 'flex');
+                            if (blob) resolve(blob);
+                            else reject(new Error('Blob failed'));
+                        }, 'image/jpeg', 0.95);
+                    })
+                    .catch(err => {
+                        dels.forEach(d => d.style.display = 'flex');
+                        reps.forEach(re => re.style.display = 'flex');
+                        reject(err);
+                    });
+            });
+        }
+
+        async function manualSaveWork() {
             saveToStorage();
-            alert('✅ تم حفظ العمل بنجاح!');
+            const activeSheets = getActiveSheetIndices();
+            if (activeSheets.length === 0) {
+                alert('✅ تم حفظ العمل! لا توجد أوراق بها صور لتنزيلها حالياً.');
+                return;
+            }
+
+            const btn = document.getElementById('globalSaveAllBtn');
+            const origText = btn ? btn.innerText : '💾 حفظ العمل يدوياً';
+            if (btn) {
+                btn.classList.add('busy');
+                btn.innerText = `⏳ جاري حفظ (${activeSheets.length}) ورقات...`;
+            }
+
+            try {
+                for (let idx = 0; idx < activeSheets.length; idx++) {
+                    const s = activeSheets[idx];
+                    const sheetEl = document.getElementById(`sheet-${s}`);
+                    if (!sheetEl) continue;
+
+                    const blob = await renderSheetToBlob(sheetEl);
+                    const fileName = `بطاقات_ورقة_${s + 1}.jpg`;
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = fileName;
+                    link.href = url;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+                    if (idx < activeSheets.length - 1) {
+                        await new Promise(r => setTimeout(r, 450));
+                    }
+                }
+                alert(`✅ تم حفظ العمل وتنزيل جميع الأوراق (${activeSheets.length}) على الجهاز بنجاح!`);
+            } catch (err) {
+                alert('⚠️ تم حفظ البيانات، لكن حدث خطأ أثناء تنزيل بعض الأوراق.');
+            } finally {
+                if (btn) {
+                    btn.classList.remove('busy');
+                    btn.innerText = origText;
+                }
+            }
         }
 
         function clearAllData() {
@@ -1313,30 +1421,56 @@
             return offCanvas;
         }
 
-        function applyCamScannerEnhanceFilter(canvasEl) {
+        function applySmoothPrintEnhanceFilter(canvasEl) {
             const w = canvasEl.width;
             const h = canvasEl.height;
             const ctx2d = canvasEl.getContext('2d');
             const imgData = ctx2d.getImageData(0, 0, w, h);
             const d = imgData.data;
 
-            for (let i = 0; i < d.length; i += 4) {
-                const r = d[i], g = d[i + 1], b = d[i + 2];
-                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            const gamma = 0.76;
+            const lut = new Uint8ClampedArray(256);
+            for (let i = 0; i < 256; i++) {
+                let v = Math.pow(i / 255, gamma) * 255;
+                if (v > 180) {
+                    const t = (v - 180) / 75;
+                    v = v + t * 14;
+                }
+                lut[i] = Math.max(0, Math.min(255, Math.round(v)));
+            }
 
-                if (lum > 125) {
-                    const t = Math.min(1, (lum - 125) / 130);
-                    const lift = 195 + t * 60;
-                    const delta = lift - lum;
-                    d[i] = Math.min(255, Math.max(0, Math.round(r + delta * 0.98)));
-                    d[i + 1] = Math.min(255, Math.max(0, Math.round(g + delta * 0.98)));
-                    d[i + 2] = Math.min(255, Math.max(0, Math.round(b + delta * 0.98)));
-                } else {
-                    const contrast = 1.32;
-                    const bright = 14;
-                    d[i] = Math.max(0, Math.min(255, Math.round((r - 128) * contrast + 128 + bright)));
-                    d[i + 1] = Math.max(0, Math.min(255, Math.round((g - 128) * contrast + 128 + bright)));
-                    d[i + 2] = Math.max(0, Math.min(255, Math.round((b - 128) * contrast + 128 + bright)));
+            const luma = new Float32Array(w * h);
+            for (let p = 0, i = 0; i < d.length; p++, i += 4) {
+                luma[p] = 0.299 * lut[d[i]] + 0.587 * lut[d[i + 1]] + 0.114 * lut[d[i + 2]];
+            }
+
+            const contrast = 1.12;
+            const mid = 128;
+
+            for (let y = 0; y < h; y++) {
+                const yUp = Math.max(0, y - 1);
+                const yDn = Math.min(h - 1, y + 1);
+                for (let x = 0; x < w; x++) {
+                    const xLt = Math.max(0, x - 1);
+                    const xRt = Math.min(w - 1, x + 1);
+                    const p = y * w + x;
+                    const i = p * 4;
+
+                    const centerL = luma[p];
+                    const avgNeighbor = (
+                        luma[yUp * w + x] +
+                        luma[yDn * w + x] +
+                        luma[y * w + xLt] +
+                        luma[y * w + xRt]
+                    ) * 0.25;
+
+                    const detail = (centerL - avgNeighbor) * 0.35;
+
+                    for (let c = 0; c < 3; c++) {
+                        let val = lut[d[i + c]];
+                        val = (val - mid) * contrast + mid + detail;
+                        d[i + c] = Math.max(0, Math.min(255, Math.round(val)));
+                    }
                 }
             }
 
@@ -1356,7 +1490,7 @@
                     c.height = img.naturalHeight || img.height;
                     const cCtx = c.getContext('2d');
                     cCtx.drawImage(img, 0, 0);
-                    applyCamScannerEnhanceFilter(c);
+                    applySmoothPrintEnhanceFilter(c);
                     resolve(c.toDataURL('image/jpeg', 0.97));
                 };
                 img.onerror = () => resolve(dataUrl);
@@ -1398,7 +1532,7 @@
             renderSheets();
         }
 
-        function extractQuadCrop(sourceCanvas, quad, keepOriginalRatio = false, applyEnhance = true) {
+        function extractQuadCrop(sourceCanvas, quad, keepOriginalRatio = false, applyEnhance = false) {
             const full = isFullQuad(quad);
             const outCanvas = document.createElement('canvas');
             const outCtx = outCanvas.getContext('2d');
@@ -1410,7 +1544,7 @@
                 outCanvas.height = sourceCanvas.height;
                 outCtx.drawImage(sourceCanvas, 0, 0);
                 if (applyEnhance) {
-                    applyCamScannerEnhanceFilter(outCanvas);
+                    applySmoothPrintEnhanceFilter(outCanvas);
                 }
                 return outCanvas.toDataURL('image/jpeg', 0.97);
             }
@@ -1480,7 +1614,7 @@
             outCtx.putImageData(outImgData, 0, 0);
 
             if (applyEnhance) {
-                applyCamScannerEnhanceFilter(outCanvas);
+                applySmoothPrintEnhanceFilter(outCanvas);
             }
 
             return outCanvas.toDataURL('image/jpeg', 0.97);
@@ -1497,7 +1631,7 @@
             const applyFromImg = (imgEl) => {
                 const full = isFullQuad(quad);
                 const rotCanvas = buildRotatedFullResCanvas(imgEl, (rot ? rot.base + rot.fine : 0));
-                const newUrl = extractQuadCrop(rotCanvas, quad, full, true);
+                const newUrl = extractQuadCrop(rotCanvas, quad, full, false);
                 if (side === 'front') item.frontCropped = newUrl;
                 else item.backCropped = newUrl;
                 saveToStorage();
@@ -1621,7 +1755,7 @@
             const fullCanvas = alreadyCard ? null : buildRotatedFullResCanvas(img, autoAngle);
             const chosenQuad = alreadyCard ? cloneQuad(FULL_QUAD) : detectCardQuad(fullCanvas);
             const wasCropped = alreadyCard ? false : (!isFullQuad(chosenQuad) || autoAngle !== 0);
-            const resultUrl = alreadyCard ? dataUrl : extractQuadCrop(fullCanvas, chosenQuad, false, true);
+            const resultUrl = alreadyCard ? dataUrl : extractQuadCrop(fullCanvas, chosenQuad, false, false);
 
             let placed = false;
             for (let i = 0; i < cardsData.length; i++) {
@@ -1704,9 +1838,9 @@
 
             activeRowIndex = rowIndex;
             activeSide = side;
-            enhanceEnabled = true;
+            enhanceEnabled = false;
             loupeScreenPos = null;
-            document.getElementById('enhanceLabel').innerText = 'وضع: تحسين';
+            document.getElementById('enhanceLabel').innerText = 'وضع: الأصل';
             document.getElementById('csResultPreview').style.display = 'none';
             document.getElementById('csProcessing').style.display = 'none';
 
@@ -2162,7 +2296,7 @@
         }
 
         function triggerReplaceImage(rowIndex, side, event) {
-            event.stopPropagation();
+            if (event) event.stopPropagation();
             replaceTargetIndex = rowIndex;
             replaceTargetSide = side;
             document.getElementById('replaceInput').value = null;
@@ -2182,7 +2316,11 @@
                     const fullCanvas = alreadyCard ? null : buildRotatedFullResCanvas(img, autoAngle);
                     const chosenQuad = alreadyCard ? cloneQuad(FULL_QUAD) : detectCardQuad(fullCanvas);
                     const wasCropped = alreadyCard ? false : (!isFullQuad(chosenQuad) || autoAngle !== 0);
-                    const resultUrl = alreadyCard ? ev.target.result : extractQuadCrop(fullCanvas, chosenQuad, false, true);
+                    const resultUrl = alreadyCard ? ev.target.result : extractQuadCrop(fullCanvas, chosenQuad, false, false);
+
+                    while (cardsData.length <= replaceTargetIndex) {
+                        cardsData.push(createEmptyRow());
+                    }
 
                     const item = cardsData[replaceTargetIndex];
                     if (replaceTargetSide === 'front') {
@@ -2663,7 +2801,12 @@
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'front', event)" title="استبدال">+</button>
                         `;
                     } else {
-                        frontBox.innerHTML = `<span>وش البطاقة</span>`;
+                        frontBox.innerHTML = `
+                            <div class="empty-slot-placeholder">
+                                <span class="empty-slot-plus">+</span>
+                                <span>وش البطاقة</span>
+                            </div>
+                        `;
                     }
                     frontBox.onclick = (e) => {
                         if (e.target.closest('button')) return;
@@ -2691,7 +2834,12 @@
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'back', event)" title="استبدال">+</button>
                         `;
                     } else {
-                        backBox.innerHTML = `<span>ظهر البطاقة</span>`;
+                        backBox.innerHTML = `
+                            <div class="empty-slot-placeholder">
+                                <span class="empty-slot-plus">+</span>
+                                <span>ظهر البطاقة</span>
+                            </div>
+                        `;
                     }
                     backBox.onclick = (e) => {
                         if (e.target.closest('button')) return;
