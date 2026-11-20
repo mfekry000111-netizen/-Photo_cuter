@@ -452,7 +452,8 @@
         }
 
         .id-box.has-img { border: 1px solid #e2e8f0; }
-        .id-box.pinching-active { touch-action: none; }
+        .id-box.pinching-active,
+        .id-box.nudging-active { touch-action: none; }
 
         .id-box.drag-source {
             opacity: 0.45;
@@ -559,7 +560,7 @@
 
     <header>
         <h1>مُنسق وقاصّ البطاقات الذكي</h1>
-        <p>تحديد حواف العقد أو البطاقة لوحدها + تحسين ناصع + سحب وتبديل باللمس</p>
+        <p>تحديد حواف العقد أو البطاقة لوحدها + تحريك البطاقة داخل المربع + سحب وتبديل باللمس</p>
     </header>
 
     <label class="upload-section" for="galleryInput">
@@ -656,7 +657,7 @@
             br: { x: 1, y: 1 },
             bl: { x: 0, y: 1 }
         };
-        const STORAGE_KEY = 'pro_id_cards_v52';
+        const STORAGE_KEY = 'pro_id_cards_v53';
 
         let cardsData = [];
         let activeRowIndex = -1;
@@ -752,9 +753,6 @@
             return 0;
         }
 
-        /**
-         * تحديد حواف العقد بالكامل داخل الصورة (يستبعد أطراف الخلفية الداكنة/الخشبية إن وجدت ويحافظ على حدود الورقة)
-         */
         function detectContractQuad(source) {
             if (!source) return cloneQuad(FULL_QUAD);
             const srcW = source.naturalWidth || source.width;
@@ -2121,6 +2119,7 @@
                         touchDragState = null;
                     }
                     e.preventDefault();
+                    boxEl.classList.remove('nudging-active');
                     boxEl.classList.add('pinching-active');
                     const t1 = e.touches[0], t2 = e.touches[1];
                     const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY) || 1;
@@ -2155,13 +2154,28 @@
                         lastY: touch.clientY,
                         imgSrc,
                         dragging: false,
+                        nudging: false,
                         overBox: null
                     };
 
                     if (imgSrc) {
+                        slotGesture = {
+                            mode: 'nudge',
+                            rowIndex,
+                            side,
+                            startX: touch.clientX,
+                            startY: touch.clientY,
+                            startTx: v.tx,
+                            startTy: v.ty,
+                            boxEl
+                        };
+
                         longPressTimer = setTimeout(() => {
                             if (!touchDragState || touchDragState.rowIndex !== rowIndex || touchDragState.side !== side) return;
+                            if (touchDragState.nudging) return;
                             if (slotGesture && slotGesture.mode === 'pinch') return;
+                            slotGesture = null;
+                            boxEl.classList.remove('nudging-active');
                             touchDragState.dragging = true;
                             suppressNextClick = true;
                             document.body.classList.add('dragging-slot-active');
@@ -2178,20 +2192,7 @@
                             if (navigator.vibrate) {
                                 navigator.vibrate(25);
                             }
-                        }, 250);
-                    }
-
-                    if (v.scale > 1.02) {
-                        slotGesture = {
-                            mode: 'pan',
-                            rowIndex,
-                            side,
-                            startX: touch.clientX,
-                            startY: touch.clientY,
-                            startTx: v.tx,
-                            startTy: v.ty,
-                            boxEl
-                        };
+                        }, 360);
                     }
                 }
             }, { passive: false });
@@ -2220,13 +2221,17 @@
                     const movedDist = Math.hypot(touch.clientX - touchDragState.startX, touch.clientY - touchDragState.startY);
 
                     if (!touchDragState.dragging) {
-                        if (movedDist > 12) {
-                            cancelLongPress();
-                        }
-                        if (slotGesture && slotGesture.mode === 'pan') {
+                        if (movedDist > 5 && slotGesture && slotGesture.mode === 'nudge') {
+                            e.preventDefault();
+                            touchDragState.nudging = true;
+                            suppressNextClick = true;
+                            boxEl.classList.add('nudging-active');
                             const v = getView();
-                            v.tx = slotGesture.startTx + (touch.clientX - slotGesture.startX);
-                            v.ty = slotGesture.startTy + (touch.clientY - slotGesture.startY);
+                            const maxShift = 65 * Math.max(1, v.scale);
+                            const rawTx = slotGesture.startTx + (touch.clientX - slotGesture.startX);
+                            const rawTy = slotGesture.startTy + (touch.clientY - slotGesture.startY);
+                            v.tx = Math.max(-maxShift, Math.min(maxShift, rawTx));
+                            v.ty = Math.max(-maxShift, Math.min(maxShift, rawTy));
                             applyTransformToImg(v);
                         }
                         return;
@@ -2257,9 +2262,11 @@
 
                 if (touchDragState && touchDragState.rowIndex === rowIndex && touchDragState.side === side) {
                     const wasDragging = touchDragState.dragging;
+                    const wasNudging = touchDragState.nudging;
                     const targetBox = touchDragState.overBox || findSlotBoxAtPoint(touchDragState.lastX, touchDragState.lastY);
 
                     clearTouchDragHighlights();
+                    boxEl.classList.remove('nudging-active');
                     touchDragState = null;
 
                     if (wasDragging && targetBox && targetBox.dataset.rowIndex !== undefined && targetBox.dataset.side) {
@@ -2268,6 +2275,10 @@
                         moveOrSwapSlots(rowIndex, side, targetRow, targetSide);
                         setTimeout(() => { suppressNextClick = false; }, 120);
                         return;
+                    }
+                    if (wasNudging) {
+                        saveToStorage();
+                        setTimeout(() => { suppressNextClick = false; }, 120);
                     }
                     if (wasDragging) {
                         setTimeout(() => { suppressNextClick = false; }, 120);
@@ -2283,6 +2294,7 @@
                         applyTransformToImg(v);
                     }
                     boxEl.classList.remove('pinching-active');
+                    boxEl.classList.remove('nudging-active');
                     slotGesture = null;
                     saveToStorage();
                 }
