@@ -34,11 +34,6 @@
             overflow-x: hidden;
         }
 
-        body.dragging-slot-active {
-            touch-action: none;
-            overflow: hidden;
-        }
-
         header {
             text-align: center;
             margin-bottom: 12px;
@@ -619,17 +614,6 @@
             background: #f0fdf4;
         }
 
-        .id-box.drag-source {
-            opacity: 0.45;
-            border: 2px dashed #16a34a;
-        }
-
-        .id-box.drag-target-over {
-            border: 2.5px solid #16a34a !important;
-            box-shadow: inset 0 0 0 2px rgba(22, 163, 74, 0.35), 0 0 12px rgba(22, 163, 74, 0.45);
-            background: #f0fdf4;
-        }
-
         .empty-slot-placeholder {
             display: flex;
             flex-direction: column;
@@ -714,32 +698,9 @@
             z-index: 5;
         }
 
-        #touchDragGhost {
-            display: none;
-            position: fixed;
-            width: 132px;
-            aspect-ratio: 1.586 / 1;
-            border-radius: 6px;
-            overflow: hidden;
-            background: #ffffff;
-            border: 2.5px solid #16a34a;
-            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
-            z-index: 10000;
-            pointer-events: none;
-            transform: translate(-50%, -50%) scale(1.06);
-        }
-
-        #touchDragGhost img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            background: #ffffff;
-            display: block;
-        }
-
         @media print {
             body { background: white; padding: 0; }
-            header, .upload-section, .global-control-bar, .shift-panel, .move-mode-banner, .page-toolbar, #cropperModal, #touchDragGhost, .btn-clear-all, .box-btn-del, .box-btn-replace, .shift-slot-checkbox { display: none !important; }
+            header, .upload-section, .global-control-bar, .shift-panel, .move-mode-banner, .page-toolbar, #cropperModal, .btn-clear-all, .box-btn-del, .box-btn-replace, .shift-slot-checkbox { display: none !important; }
             .page-wrapper { margin: 0; page-break-after: always; }
             .a4-sheet { box-shadow: none; width: 210mm; height: 297mm; padding: 5mm; gap: 4mm; }
         }
@@ -790,8 +751,6 @@
 
     <div id="sheetsContainer"></div>
     <div id="clearSection" style="max-width: 794px; margin: 0 auto;"></div>
-
-    <div id="touchDragGhost"><img id="touchDragGhostImg" src="" alt=""></div>
 
     <!-- شاشة الاقتصاص -->
     <div id="cropperModal">
@@ -871,7 +830,7 @@
             br: { x: 1, y: 1 },
             bl: { x: 0, y: 1 }
         };
-        const STORAGE_KEY = 'pro_id_cards_v60';
+        const STORAGE_KEY = 'pro_id_cards_v61';
 
         let cardsData = [];
         let activeRowIndex = -1;
@@ -910,7 +869,7 @@
         let cssCanvasH = 600;
 
         let slotGesture = null;
-        let touchDragState = null;
+        let nudgeState = null;
         let suppressNextClick = false;
 
         const canvas = document.getElementById('cropCanvas');
@@ -2763,26 +2722,7 @@
             renderSheets();
         }
 
-        function clearTouchDragHighlights() {
-            document.querySelectorAll('.id-box.drag-target-over, .id-box.drag-source').forEach(el => {
-                el.classList.remove('drag-target-over');
-                el.classList.remove('drag-source');
-            });
-            document.body.classList.remove('dragging-slot-active');
-            const ghost = document.getElementById('touchDragGhost');
-            if (ghost) ghost.style.display = 'none';
-        }
-
-        function findSlotBoxAtPoint(clientX, clientY) {
-            const ghost = document.getElementById('touchDragGhost');
-            const prevDisplay = ghost ? ghost.style.display : 'none';
-            if (ghost) ghost.style.display = 'none';
-            const el = document.elementFromPoint(clientX, clientY);
-            if (ghost) ghost.style.display = prevDisplay;
-            return el ? el.closest('.id-box') : null;
-        }
-
-        function attachTwoFingerAndTouchDrag(boxEl, rowIndex, side) {
+        function attachTwoFingerAndNudgeGestures(boxEl, rowIndex, side) {
             const getView = () => {
                 const item = cardsData[rowIndex];
                 if (!item) return { scale: 1, tx: 0, ty: 0 };
@@ -2802,25 +2742,12 @@
                 }
             };
 
-            let longPressTimer = null;
-
-            const cancelLongPress = () => {
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-            };
-
             boxEl.addEventListener('touchstart', (e) => {
                 if (e.target.closest('button')) return;
                 const v = getView();
 
                 if (e.touches.length === 2) {
-                    cancelLongPress();
-                    if (touchDragState && touchDragState.dragging) {
-                        clearTouchDragHighlights();
-                        touchDragState = null;
-                    }
+                    nudgeState = null;
                     e.preventDefault();
                     boxEl.classList.remove('nudging-active');
                     boxEl.classList.add('pinching-active');
@@ -2851,21 +2778,18 @@
                         ? cloneQuad((item && item.frontQuad) || FULL_QUAD)
                         : cloneQuad((item && item.backQuad) || FULL_QUAD);
 
-                    touchDragState = {
-                        rowIndex,
-                        side,
-                        startX: touch.clientX,
-                        startY: touch.clientY,
-                        lastX: touch.clientX,
-                        lastY: touch.clientY,
-                        imgSrc,
-                        originQuad: currentQuad,
-                        dragging: false,
-                        nudging: false,
-                        overBox: null
-                    };
-
                     if (imgSrc) {
+                        nudgeState = {
+                            rowIndex,
+                            side,
+                            startX: touch.clientX,
+                            startY: touch.clientY,
+                            lastX: touch.clientX,
+                            lastY: touch.clientY,
+                            originQuad: currentQuad,
+                            nudging: false
+                        };
+
                         slotGesture = {
                             mode: 'nudge',
                             rowIndex,
@@ -2876,30 +2800,6 @@
                             startTy: v.ty,
                             boxEl
                         };
-
-                        longPressTimer = setTimeout(() => {
-                            if (!touchDragState || touchDragState.rowIndex !== rowIndex || touchDragState.side !== side) return;
-                            if (touchDragState.nudging) return;
-                            if (slotGesture && slotGesture.mode === 'pinch') return;
-                            slotGesture = null;
-                            boxEl.classList.remove('nudging-active');
-                            touchDragState.dragging = true;
-                            suppressNextClick = true;
-                            document.body.classList.add('dragging-slot-active');
-                            boxEl.classList.add('drag-source');
-
-                            const ghost = document.getElementById('touchDragGhost');
-                            const ghostImg = document.getElementById('touchDragGhostImg');
-                            if (ghost && ghostImg) {
-                                ghostImg.src = imgSrc;
-                                ghost.style.left = touchDragState.lastX + 'px';
-                                ghost.style.top = touchDragState.lastY + 'px';
-                                ghost.style.display = 'block';
-                            }
-                            if (navigator.vibrate) {
-                                navigator.vibrate(25);
-                            }
-                        }, 450);
                     }
                 }
             }, { passive: false });
@@ -2921,71 +2821,35 @@
                     return;
                 }
 
-                if (e.touches.length === 1 && touchDragState && touchDragState.rowIndex === rowIndex && touchDragState.side === side) {
+                if (e.touches.length === 1 && nudgeState && nudgeState.rowIndex === rowIndex && nudgeState.side === side) {
                     const touch = e.touches[0];
-                    touchDragState.lastX = touch.clientX;
-                    touchDragState.lastY = touch.clientY;
-                    const movedDist = Math.hypot(touch.clientX - touchDragState.startX, touch.clientY - touchDragState.startY);
+                    nudgeState.lastX = touch.clientX;
+                    nudgeState.lastY = touch.clientY;
+                    const movedDist = Math.hypot(touch.clientX - nudgeState.startX, touch.clientY - nudgeState.startY);
 
-                    if (!touchDragState.dragging) {
-                        if (movedDist > 7 && slotGesture && slotGesture.mode === 'nudge') {
-                            e.preventDefault();
-                            touchDragState.nudging = true;
-                            suppressNextClick = true;
-                            boxEl.classList.add('nudging-active');
-                            const v = getView();
-                            const slowFactor = 0.35;
-                            const rawTx = slotGesture.startTx + (touch.clientX - slotGesture.startX) * slowFactor;
-                            const rawTy = slotGesture.startTy + (touch.clientY - slotGesture.startY) * slowFactor;
-                            v.tx = Math.max(-36, Math.min(36, rawTx));
-                            v.ty = Math.max(-36, Math.min(36, rawTy));
-                            applyTransformToImg(v);
-                        }
-                        return;
-                    }
-
-                    e.preventDefault();
-                    const ghost = document.getElementById('touchDragGhost');
-                    if (ghost) {
-                        ghost.style.left = touch.clientX + 'px';
-                        ghost.style.top = touch.clientY + 'px';
-                    }
-
-                    const targetBox = findSlotBoxAtPoint(touch.clientX, touch.clientY);
-                    if (touchDragState.overBox && touchDragState.overBox !== targetBox) {
-                        touchDragState.overBox.classList.remove('drag-target-over');
-                    }
-                    if (targetBox && targetBox !== boxEl) {
-                        targetBox.classList.add('drag-target-over');
-                        touchDragState.overBox = targetBox;
-                    } else {
-                        touchDragState.overBox = null;
+                    if (movedDist > 7 && slotGesture && slotGesture.mode === 'nudge') {
+                        e.preventDefault();
+                        nudgeState.nudging = true;
+                        suppressNextClick = true;
+                        boxEl.classList.add('nudging-active');
+                        const v = getView();
+                        const slowFactor = 0.35;
+                        const rawTx = slotGesture.startTx + (touch.clientX - slotGesture.startX) * slowFactor;
+                        const rawTy = slotGesture.startTy + (touch.clientY - slotGesture.startY) * slowFactor;
+                        v.tx = Math.max(-36, Math.min(36, rawTx));
+                        v.ty = Math.max(-36, Math.min(36, rawTy));
+                        applyTransformToImg(v);
                     }
                 }
             }, { passive: false });
 
             const finishGesture = () => {
-                cancelLongPress();
-
-                if (touchDragState && touchDragState.rowIndex === rowIndex && touchDragState.side === side) {
-                    const wasDragging = touchDragState.dragging;
-                    const wasNudging = touchDragState.nudging;
-                    const deltaPxX = touchDragState.lastX - touchDragState.startX;
-                    const deltaPxY = touchDragState.lastY - touchDragState.startY;
-                    const originQuad = touchDragState.originQuad;
-                    const targetBox = touchDragState.overBox || findSlotBoxAtPoint(touchDragState.lastX, touchDragState.lastY);
-
-                    clearTouchDragHighlights();
-                    boxEl.classList.remove('nudging-active');
-                    touchDragState = null;
-
-                    if (wasDragging && targetBox && targetBox.dataset.rowIndex !== undefined && targetBox.dataset.side) {
-                        const targetRow = parseInt(targetBox.dataset.rowIndex, 10);
-                        const targetSide = targetBox.dataset.side;
-                        moveOrSwapSlots(rowIndex, side, targetRow, targetSide);
-                        setTimeout(() => { suppressNextClick = false; }, 120);
-                        return;
-                    }
+                if (nudgeState && nudgeState.rowIndex === rowIndex && nudgeState.side === side) {
+                    const wasNudging = nudgeState.nudging;
+                    const deltaPxX = nudgeState.lastX - nudgeState.startX;
+                    const deltaPxY = nudgeState.lastY - nudgeState.startY;
+                    const originQuad = nudgeState.originQuad;
+                    nudgeState = null;
 
                     if (wasNudging) {
                         const item = cardsData[rowIndex];
@@ -3019,12 +2883,10 @@
                             applyTransformToImg(v);
                             saveToStorage();
                         }
+                        boxEl.classList.remove('nudging-active');
+                        slotGesture = null;
                         setTimeout(() => { suppressNextClick = false; }, 140);
                         return;
-                    }
-
-                    if (wasDragging) {
-                        setTimeout(() => { suppressNextClick = false; }, 120);
                     }
                 }
 
@@ -3045,37 +2907,6 @@
 
             boxEl.addEventListener('touchend', finishGesture);
             boxEl.addEventListener('touchcancel', finishGesture);
-        }
-
-        function handleDragStart(e, rowIndex, side) {
-            e.dataTransfer.setData('text/plain', JSON.stringify({ rowIndex, side }));
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            const box = e.currentTarget;
-            if (box && box.classList.contains('id-box')) {
-                box.classList.add('drag-target-over');
-            }
-        }
-
-        function handleDragLeave(e) {
-            const box = e.currentTarget;
-            if (box && box.classList.contains('id-box')) {
-                box.classList.remove('drag-target-over');
-            }
-        }
-
-        function handleDrop(e, targetRowIndex, targetSide) {
-            e.preventDefault();
-            const box = e.currentTarget;
-            if (box && box.classList.contains('id-box')) {
-                box.classList.remove('drag-target-over');
-            }
-            const dataStr = e.dataTransfer.getData('text/plain');
-            if (!dataStr) return;
-            const src = JSON.parse(dataStr);
-            moveOrSwapSlots(src.rowIndex, src.side, targetRowIndex, targetSide);
         }
 
         function renderSheets() {
@@ -3123,13 +2954,8 @@
                     frontBox.className = 'id-box' + (pair.frontCropped ? ' has-img' : '') + (frontChecked ? ' shift-checked' : '');
                     frontBox.dataset.rowIndex = String(globalIdx);
                     frontBox.dataset.side = 'front';
-                    frontBox.ondragover = handleDragOver;
-                    frontBox.ondragleave = handleDragLeave;
-                    frontBox.ondrop = (e) => handleDrop(e, globalIdx, 'front');
 
                     if (pair.frontCropped) {
-                        frontBox.draggable = true;
-                        frontBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'front');
                         const fv = pair.frontView || { scale: 1, tx: 0, ty: 0 };
                         const cbHtml = showShiftControls
                             ? `<button type="button" class="shift-slot-checkbox ${frontChecked ? 'checked' : ''}" onclick="toggleShiftSlotSelection(${globalIdx}, 'front', event)" title="تحديد للترحيل">${frontChecked ? '✓' : ''}</button>`
@@ -3154,7 +2980,7 @@
                         if (e.target.closest('button')) return;
                         handleSlotTapInteraction(globalIdx, 'front', e);
                     };
-                    attachTwoFingerAndTouchDrag(frontBox, globalIdx, 'front');
+                    attachTwoFingerAndNudgeGestures(frontBox, globalIdx, 'front');
 
                     const backKey = getSlotKey(globalIdx, 'back');
                     const backChecked = showShiftControls && pair.backCropped && shiftSelectedKeys.has(backKey);
@@ -3163,13 +2989,8 @@
                     backBox.className = 'id-box' + (pair.backCropped ? ' has-img' : '') + (backChecked ? ' shift-checked' : '');
                     backBox.dataset.rowIndex = String(globalIdx);
                     backBox.dataset.side = 'back';
-                    backBox.ondragover = handleDragOver;
-                    backBox.ondragleave = handleDragLeave;
-                    backBox.ondrop = (e) => handleDrop(e, globalIdx, 'back');
 
                     if (pair.backCropped) {
-                        backBox.draggable = true;
-                        backBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'back');
                         const bv = pair.backView || { scale: 1, tx: 0, ty: 0 };
                         const cbHtml = showShiftControls
                             ? `<button type="button" class="shift-slot-checkbox ${backChecked ? 'checked' : ''}" onclick="toggleShiftSlotSelection(${globalIdx}, 'back', event)" title="تحديد للترحيل">${backChecked ? '✓' : ''}</button>`
@@ -3194,7 +3015,7 @@
                         if (e.target.closest('button')) return;
                         handleSlotTapInteraction(globalIdx, 'back', e);
                     };
-                    attachTwoFingerAndTouchDrag(backBox, globalIdx, 'back');
+                    attachTwoFingerAndNudgeGestures(backBox, globalIdx, 'back');
 
                     row.appendChild(frontBox);
                     row.appendChild(backBox);
