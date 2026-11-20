@@ -116,6 +116,37 @@
             .btn-g-save { grid-column: span 3; }
         }
 
+        .move-mode-banner {
+            display: none;
+            max-width: 794px;
+            margin: 0 auto 12px auto;
+            background: #14532d;
+            border: 1.5px solid #22c55e;
+            color: #dcfce7;
+            padding: 9px 12px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .move-mode-banner.active {
+            display: flex;
+        }
+
+        .move-cancel-btn {
+            background: #dc2626;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         /* شاشة الاقتصاص */
         #cropperModal {
             display: none;
@@ -455,6 +486,32 @@
         .id-box.pinching-active,
         .id-box.nudging-active { touch-action: none; }
 
+        .id-box.moving-selected {
+            border: 3px solid #16a34a !important;
+            box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.35), 0 8px 18px rgba(0, 0, 0, 0.25);
+            transform: scale(0.98);
+        }
+
+        .id-box.moving-selected::after {
+            content: "⇄ جاهز للنقل";
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: #16a34a;
+            color: #ffffff;
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 6;
+            pointer-events: none;
+        }
+
+        .id-box.move-target-hint {
+            border: 2px dashed #16a34a;
+            background: #f0fdf4;
+        }
+
         .id-box.drag-source {
             opacity: 0.45;
             border: 2px dashed #16a34a;
@@ -550,7 +607,7 @@
 
         @media print {
             body { background: white; padding: 0; }
-            header, .upload-section, .global-control-bar, .page-toolbar, #cropperModal, #touchDragGhost, .btn-clear-all, .box-btn-del, .box-btn-replace { display: none !important; }
+            header, .upload-section, .global-control-bar, .move-mode-banner, .page-toolbar, #cropperModal, #touchDragGhost, .btn-clear-all, .box-btn-del, .box-btn-replace { display: none !important; }
             .page-wrapper { margin: 0; page-break-after: always; }
             .a4-sheet { box-shadow: none; width: 210mm; height: 297mm; padding: 5mm; gap: 4mm; }
         }
@@ -560,7 +617,7 @@
 
     <header>
         <h1>مُنسق وقاصّ البطاقات الذكي</h1>
-        <p>تحديد حواف العقد أو البطاقة لوحدها + تحريك مرن يجلب الأجزاء المفقودة + سحب وتبديل باللمس</p>
+        <p>تحريك هادئ داخل الإطار لجلب الأجزاء المفقودة + تكتين للنقل وتكّة للوضع أو التبديل</p>
     </header>
 
     <label class="upload-section" for="galleryInput">
@@ -572,6 +629,11 @@
         <button class="btn-g-action btn-g-copy" id="globalCopyBtn" onclick="globalCopyFormat()">🎨 نسخ التنسيق</button>
         <button class="btn-g-action btn-g-paste" id="globalPasteBtn" onclick="globalPasteFormat()">📌 لصق التنسيق</button>
         <button class="btn-g-action btn-g-save" onclick="manualSaveWork()">💾 حفظ العمل يدوياً</button>
+    </div>
+
+    <div class="move-mode-banner" id="moveModeBanner">
+        <span>⇄ وضع النقل نشط: اضغط تكّة واحدة على أي خانة (فاضية أو عليها صورة) للنقل أو التبديل.</span>
+        <button type="button" class="move-cancel-btn" onclick="cancelPendingMove()">إلغاء</button>
     </div>
 
     <div id="sheetsContainer"></div>
@@ -657,7 +719,7 @@
             br: { x: 1, y: 1 },
             bl: { x: 0, y: 1 }
         };
-        const STORAGE_KEY = 'pro_id_cards_v54';
+        const STORAGE_KEY = 'pro_id_cards_v55';
 
         let cardsData = [];
         let activeRowIndex = -1;
@@ -667,6 +729,10 @@
 
         let copiedFormat = null;
         let selectedSlots = new Set();
+
+        let pendingMoveSource = null;
+        let lastTapInfo = { rowIndex: -1, side: null, time: 0 };
+        let singleTapTimer = null;
 
         let rawOriginalImage = null;
         let rotatedCanvas = null;
@@ -737,6 +803,101 @@
                 base[k].y = clamp01(base[k].y + safeDy);
             });
             return base;
+        }
+
+        function updateMoveModeUI() {
+            const banner = document.getElementById('moveModeBanner');
+            if (banner) {
+                banner.classList.toggle('active', !!pendingMoveSource);
+            }
+            document.querySelectorAll('.id-box').forEach(el => {
+                const r = parseInt(el.dataset.rowIndex, 10);
+                const s = el.dataset.side;
+                const isSrc = !!(pendingMoveSource && pendingMoveSource.rowIndex === r && pendingMoveSource.side === s);
+                el.classList.toggle('moving-selected', isSrc);
+                el.classList.toggle('move-target-hint', !!(pendingMoveSource && !isSrc));
+            });
+        }
+
+        function cancelPendingMove() {
+            pendingMoveSource = null;
+            lastTapInfo = { rowIndex: -1, side: null, time: 0 };
+            if (singleTapTimer) {
+                clearTimeout(singleTapTimer);
+                singleTapTimer = null;
+            }
+            updateMoveModeUI();
+        }
+
+        function activatePendingMove(rowIndex, side) {
+            const item = cardsData[rowIndex];
+            const hasImg = side === 'front' ? !!(item && item.frontCropped) : !!(item && item.backCropped);
+            if (!hasImg) return;
+
+            if (pendingMoveSource && pendingMoveSource.rowIndex === rowIndex && pendingMoveSource.side === side) {
+                cancelPendingMove();
+                return;
+            }
+
+            pendingMoveSource = { rowIndex, side };
+            updateMoveModeUI();
+            if (navigator.vibrate) {
+                navigator.vibrate(25);
+            }
+        }
+
+        function handleSlotTapInteraction(rowIndex, side, event) {
+            if (suppressNextClick) {
+                suppressNextClick = false;
+                return;
+            }
+            if (event) event.stopPropagation();
+
+            const item = cardsData[rowIndex];
+            const hasImg = side === 'front' ? !!(item && item.frontCropped) : !!(item && item.backCropped);
+
+            if (pendingMoveSource) {
+                const src = pendingMoveSource;
+                pendingMoveSource = null;
+                lastTapInfo = { rowIndex: -1, side: null, time: 0 };
+                if (singleTapTimer) {
+                    clearTimeout(singleTapTimer);
+                    singleTapTimer = null;
+                }
+                updateMoveModeUI();
+
+                if (src.rowIndex === rowIndex && src.side === side) {
+                    return;
+                }
+                moveOrSwapSlots(src.rowIndex, src.side, rowIndex, side);
+                return;
+            }
+
+            if (!hasImg) return;
+
+            const now = Date.now();
+            const isDoubleTap = (
+                lastTapInfo.rowIndex === rowIndex &&
+                lastTapInfo.side === side &&
+                (now - lastTapInfo.time) <= 360
+            );
+
+            if (singleTapTimer) {
+                clearTimeout(singleTapTimer);
+                singleTapTimer = null;
+            }
+
+            if (isDoubleTap) {
+                lastTapInfo = { rowIndex: -1, side: null, time: 0 };
+                activatePendingMove(rowIndex, side);
+            } else {
+                lastTapInfo = { rowIndex, side, time: now };
+                singleTapTimer = setTimeout(() => {
+                    singleTapTimer = null;
+                    lastTapInfo = { rowIndex: -1, side: null, time: 0 };
+                    openCropper(rowIndex, side, null);
+                }, 260);
+            }
         }
 
         function getSlotKey(rowIndex, side) {
@@ -1129,6 +1290,7 @@
                 cardsData = [];
                 selectedSlots.clear();
                 copiedFormat = null;
+                pendingMoveSource = null;
                 ensureEmptySlots();
                 updatePasteButtonState();
                 renderSheets();
@@ -1920,6 +2082,9 @@
             const item = cardsData[rowIndex];
             if (!item) return;
 
+            if (pendingMoveSource && pendingMoveSource.rowIndex === rowIndex && pendingMoveSource.side === side) {
+                pendingMoveSource = null;
+            }
             selectedSlots.delete(getSlotKey(rowIndex, side));
 
             if (side === 'front') {
@@ -2069,6 +2234,7 @@
                 assignSlot(srcItem, srcSide, targetSlot);
             }
 
+            pendingMoveSource = null;
             ensureEmptySlots();
             saveToStorage();
             renderSheets();
@@ -2210,7 +2376,7 @@
                             if (navigator.vibrate) {
                                 navigator.vibrate(25);
                             }
-                        }, 380);
+                        }, 450);
                     }
                 }
             }, { passive: false });
@@ -2239,16 +2405,17 @@
                     const movedDist = Math.hypot(touch.clientX - touchDragState.startX, touch.clientY - touchDragState.startY);
 
                     if (!touchDragState.dragging) {
-                        if (movedDist > 5 && slotGesture && slotGesture.mode === 'nudge') {
+                        if (movedDist > 7 && slotGesture && slotGesture.mode === 'nudge') {
                             e.preventDefault();
                             touchDragState.nudging = true;
                             suppressNextClick = true;
                             boxEl.classList.add('nudging-active');
                             const v = getView();
-                            const rawTx = slotGesture.startTx + (touch.clientX - slotGesture.startX);
-                            const rawTy = slotGesture.startTy + (touch.clientY - slotGesture.startY);
-                            v.tx = Math.max(-90, Math.min(90, rawTx));
-                            v.ty = Math.max(-90, Math.min(90, rawTy));
+                            const slowFactor = 0.35;
+                            const rawTx = slotGesture.startTx + (touch.clientX - slotGesture.startX) * slowFactor;
+                            const rawTy = slotGesture.startTy + (touch.clientY - slotGesture.startY) * slowFactor;
+                            v.tx = Math.max(-36, Math.min(36, rawTx));
+                            v.ty = Math.max(-36, Math.min(36, rawTy));
                             applyTransformToImg(v);
                         }
                         return;
@@ -2305,8 +2472,9 @@
 
                         if (item && originQuad) {
                             const rect = boxEl.getBoundingClientRect();
-                            const normShiftX = -(deltaPxX / Math.max(1, rect.width)) * 0.45;
-                            const normShiftY = -(deltaPxY / Math.max(1, rect.height)) * 0.45;
+                            const gentleScale = 0.18;
+                            const normShiftX = -(deltaPxX / Math.max(1, rect.width)) * gentleScale;
+                            const normShiftY = -(deltaPxY / Math.max(1, rect.height)) * gentleScale;
                             const shiftedQuad = shiftQuadClamped(originQuad, normShiftX, normShiftY);
 
                             if (side === 'front') {
@@ -2443,13 +2611,13 @@
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'front', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'front', event)" title="استبدال">+</button>
                         `;
-                        frontBox.onclick = (e) => {
-                            if (e.target.closest('button')) return;
-                            openCropper(globalIdx, 'front', e);
-                        };
                     } else {
                         frontBox.innerHTML = `<span>وش البطاقة</span>`;
                     }
+                    frontBox.onclick = (e) => {
+                        if (e.target.closest('button')) return;
+                        handleSlotTapInteraction(globalIdx, 'front', e);
+                    };
                     attachTwoFingerAndTouchDrag(frontBox, globalIdx, 'front');
 
                     const backBox = document.createElement('div');
@@ -2471,13 +2639,13 @@
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'back', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'back', event)" title="استبدال">+</button>
                         `;
-                        backBox.onclick = (e) => {
-                            if (e.target.closest('button')) return;
-                            openCropper(globalIdx, 'back', e);
-                        };
                     } else {
                         backBox.innerHTML = `<span>ظهر البطاقة</span>`;
                     }
+                    backBox.onclick = (e) => {
+                        if (e.target.closest('button')) return;
+                        handleSlotTapInteraction(globalIdx, 'back', e);
+                    };
                     attachTwoFingerAndTouchDrag(backBox, globalIdx, 'back');
 
                     row.appendChild(frontBox);
@@ -2490,6 +2658,7 @@
                 container.appendChild(wrapper);
             }
 
+            updateMoveModeUI();
             updatePasteButtonState();
 
             if (cardsData.some(i => i.frontCropped || i.backCropped)) {
