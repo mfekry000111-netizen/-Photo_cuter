@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>مُنسق وقاصّ البطاقات الذكي بالذكاء الاصطناعي</title>
+    <title>مُنسق وقاصّ البطاقات الذكي</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --accent: #f5b400;
+            --cs-green: #16a34a;
             --dark-bg: #121212;
             --card-bg: #1e1e1e;
             --text-main: #f3f4f6;
@@ -21,13 +22,21 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
+            -webkit-user-select: none;
         }
 
-        body {
+        html, body {
             background-color: var(--dark-bg);
             color: var(--text-main);
             padding: 12px;
-            padding-bottom: 60px;
+            padding-bottom: 65px;
+            touch-action: pan-y;
+            overflow-x: hidden;
+        }
+
+        body.dragging-slot-active {
+            touch-action: none;
+            overflow: hidden;
         }
 
         header {
@@ -69,7 +78,6 @@
             z-index: -1;
         }
 
-        /* شريط التحكم العلوي العام (نسخ، لصق، ذكاء اصطناعي، حفظ) */
         .global-control-bar {
             max-width: 794px;
             margin: 0 auto 15px auto;
@@ -80,7 +88,7 @@
 
         @media(min-width: 600px) {
             .global-control-bar {
-                grid-template-columns: repeat(4, 1fr);
+                grid-template-columns: repeat(3, 1fr);
             }
         }
 
@@ -99,231 +107,263 @@
             box-shadow: 0 3px 8px rgba(0,0,0,0.3);
         }
 
-        .btn-ai-enhance { background: #8b5cf6; }
         .btn-g-copy { background: #9333ea; }
-        .btn-g-paste { background: #059669; opacity: 0.5; pointer-events: none; }
-        .btn-g-paste.active { opacity: 1; pointer-events: auto; animation: pulseGlow 1.5s infinite; }
+        .btn-g-paste { background: #4b5563; opacity: 0.85; }
+        .btn-g-paste.ready { background: #16a34a; opacity: 1; }
         .btn-g-save { background: #2563eb; grid-column: span 2; }
 
         @media(min-width: 600px) {
-            .btn-g-save { grid-column: span 4; }
+            .btn-g-save { grid-column: span 3; }
         }
 
-        @keyframes pulseGlow {
-            0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6); }
-            70% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
-        }
-
-        /* نافذة الاقتصاص الاحترافية */
+        /* شاشة الاقتصاص */
         #cropperModal {
             display: none;
             position: fixed;
             inset: 0;
-            background: #f4f4f5;
-            color: #18181b;
+            background: #e5e7eb;
+            color: #111827;
             z-index: 9999;
             flex-direction: column;
             justify-content: space-between;
+            touch-action: none;
         }
 
-        .editor-top-bar {
+        .cs-top-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 14px;
+            padding: 12px 16px;
             background: #ffffff;
-            border-bottom: 1px solid #e4e4e7;
+            border-bottom: 1px solid #e5e7eb;
             z-index: 10;
         }
 
-        .btn-top-close {
+        .cs-btn-close {
             width: 36px;
             height: 36px;
-            border-radius: 50%;
             border: none;
-            background: #f4f4f5;
-            color: #18181b;
-            font-size: 1.1rem;
-            font-weight: bold;
+            background: transparent;
+            color: #111827;
+            font-size: 1.35rem;
+            font-weight: 500;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        .editor-top-title {
-            font-size: 0.82rem;
+        .cs-top-title {
+            font-size: 1rem;
             font-weight: 700;
-            color: #3f3f46;
+            color: #111827;
         }
 
-        .btn-top-save {
-            background: var(--accent);
-            color: #000000;
+        .cs-btn-check {
+            width: 36px;
+            height: 36px;
             border: none;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-weight: 800;
-            font-size: 0.9rem;
+            background: transparent;
+            color: #111827;
+            font-size: 1.45rem;
+            font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(245, 180, 0, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .editor-workspace {
+        .cs-edge-switcher {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 10;
+        }
+
+        .cs-edge-btn {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1.5px solid #d1d5db;
+            background: #ffffff;
+            color: #1f2937;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .cs-edge-btn.active {
+            background: #16a34a;
+            border-color: #16a34a;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(22, 163, 74, 0.28);
+        }
+
+        .cs-workspace {
             flex: 1;
             position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            background: #e4e4e7;
+            background: #e5e7eb;
+            touch-action: none;
         }
 
         #cropCanvas {
             display: block;
+            width: 100%;
+            height: 100%;
             touch-action: none;
         }
 
-        .editor-bottom-panel {
+        .cs-processing-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            z-index: 25;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cs-logo-badge {
+            width: 58px;
+            height: 58px;
+            border-radius: 14px;
+            background: #16a34a;
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 1.55rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+            letter-spacing: -1px;
+        }
+
+        #csResultPreview {
+            display: none;
+            position: absolute;
+            inset: 0;
             background: #ffffff;
-            padding: 10px 14px 16px;
-            border-top: 1px solid #e4e4e7;
-            display: flex;
+            z-index: 30;
             flex-direction: column;
-            gap: 10px;
-            z-index: 10;
+            justify-content: space-between;
+            touch-action: pan-y;
         }
 
-        .reset-row {
+        .cs-res-top {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
-            gap: 18px;
-            position: relative;
-            height: 34px;
+            padding: 12px 16px;
+            background: #ffffff;
+            border-bottom: 1px solid #f3f4f6;
         }
 
-        .btn-reset-all {
-            background: none;
+        .cs-res-done {
+            background: #16a34a;
+            color: #ffffff;
             border: none;
-            color: #52525b;
-            font-size: 0.82rem;
-            font-weight: 700;
-            cursor: pointer;
-            padding: 4px 10px;
-        }
-
-        .btn-box-zoom {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 1.5px solid #d4d4d8;
-            background: #f4f4f5;
-            color: #18181b;
-            font-size: 1.2rem;
+            padding: 7px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
             font-weight: 800;
-            line-height: 1;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-        }
-
-        .ruler-container {
-            position: relative;
-            width: 100%;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .ruler-ticks {
-            position: absolute;
-            inset: 6px 12px;
-            background-image: repeating-linear-gradient(
-                to right,
-                #a1a1aa 0px,
-                #a1a1aa 1.5px,
-                transparent 1.5px,
-                transparent 10px
-            );
-            pointer-events: none;
-            opacity: 0.7;
-        }
-
-        .ruler-center-mark {
-            position: absolute;
-            top: 2px;
-            bottom: 2px;
-            left: 50%;
-            width: 2.5px;
-            background: var(--accent);
-            transform: translateX(-50%);
-            pointer-events: none;
-            z-index: 2;
-        }
-
-        #angleSlider {
-            width: 100%;
-            -webkit-appearance: none;
-            appearance: none;
-            background: transparent;
-            position: relative;
-            z-index: 3;
             cursor: pointer;
         }
 
-        #angleSlider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 28px;
-            border-radius: 4px;
-            background: var(--accent);
-            border: 2px solid #ffffff;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+        .cs-res-body {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            background: #ffffff;
         }
 
-        .quick-tools-row {
+        .cs-res-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        .cs-res-bottom {
+            padding: 12px 16px 18px;
             display: flex;
             justify-content: space-around;
             align-items: center;
-            padding-top: 2px;
+            background: #ffffff;
+            border-top: 1px solid #f3f4f6;
         }
 
-        .tool-circle-item {
+        .cs-res-action {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 4px;
             background: none;
             border: none;
+            color: #111827;
+            font-size: 0.75rem;
+            font-weight: 700;
             cursor: pointer;
-            color: #3f3f46;
-            font-size: 0.72rem;
-            font-weight: 600;
         }
 
-        .circle-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: #f4f4f5;
+        .cs-bottom-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            background: #ffffff;
+            padding: 10px 8px 16px;
+            border-top: 1px solid #e5e7eb;
+            z-index: 10;
+        }
+
+        .cs-tool-btn {
+            background: none;
+            border: none;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 1.05rem;
-            font-weight: 800;
-            color: #18181b;
-            transition: background 0.15s;
+            gap: 5px;
+            color: #111827;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
         }
 
-        .circle-icon.active-angle {
-            background: var(--accent);
-            color: #000000;
+        .cs-tool-btn.active-tool {
+            color: #16a34a;
+            font-weight: 700;
+        }
+
+        .cs-icon-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            line-height: 1;
+        }
+
+        .cs-red-dot {
+            position: absolute;
+            top: -2px;
+            right: -5px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ef4444;
         }
 
         /* تنسيق أوراق الطباعة A4 */
@@ -407,28 +447,42 @@
             color: #94a3b8;
             font-size: 0.75rem;
             cursor: pointer;
-            touch-action: none;
+            touch-action: pan-y;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
         }
 
         .id-box.has-img { border: 1px solid #e2e8f0; }
+        .id-box.pinching-active { touch-action: none; }
+
+        .id-box.drag-source {
+            opacity: 0.45;
+            border: 2px dashed #16a34a;
+        }
+
+        .id-box.drag-target-over {
+            border: 2.5px solid #16a34a !important;
+            box-shadow: inset 0 0 0 2px rgba(22, 163, 74, 0.35), 0 0 12px rgba(22, 163, 74, 0.45);
+            background: #f0fdf4;
+        }
+
+        .id-box .slot-stage {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
 
         .id-box img {
             width: 100%;
             height: 100%;
-            object-fit: fill;
+            object-fit: contain;
+            background: #ffffff;
             display: block;
-            pointer-events: none;
-        }
-
-        .tap-hint {
-            position: absolute;
-            bottom: 4px;
-            right: 4px;
-            background: rgba(0,0,0,0.72);
-            color: #fff;
-            font-size: 0.61rem;
-            padding: 2px 6px;
-            border-radius: 4px;
+            transform-origin: center center;
+            will-change: transform;
             pointer-events: none;
         }
 
@@ -470,9 +524,32 @@
             z-index: 5;
         }
 
+        #touchDragGhost {
+            display: none;
+            position: fixed;
+            width: 132px;
+            aspect-ratio: 1.586 / 1;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #ffffff;
+            border: 2.5px solid #16a34a;
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+            z-index: 10000;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(1.06);
+        }
+
+        #touchDragGhost img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #ffffff;
+            display: block;
+        }
+
         @media print {
             body { background: white; padding: 0; }
-            header, .upload-section, .global-control-bar, .page-toolbar, #cropperModal, .tap-hint, .btn-clear-all, .box-btn-del, .box-btn-replace { display: none !important; }
+            header, .upload-section, .global-control-bar, .page-toolbar, #cropperModal, #touchDragGhost, .btn-clear-all, .box-btn-del, .box-btn-replace { display: none !important; }
             .page-wrapper { margin: 0; page-break-after: always; }
             .a4-sheet { box-shadow: none; width: 210mm; height: 297mm; padding: 5mm; gap: 4mm; }
         }
@@ -481,166 +558,544 @@
 <body>
 
     <header>
-        <h1>مُنسق وقاصّ البطاقات الذكي بالذكاء الاصطناعي</h1>
-        <p>اقتصاص تلقائي، معالجة ذكية للعيوب، وفرشاة نسخ ولصق علوية شاملة لكل البطاقات</p>
+        <h1>مُنسق وقاصّ البطاقات الذكي</h1>
+        <p>تحديد حواف العقد أو البطاقة لوحدها + تحسين ناصع + سحب وتبديل باللمس</p>
     </header>
 
     <label class="upload-section" for="galleryInput">
-        🖼️ رفع صور العقود / البطاقات من المعرض (رصد ذكي للبطاقات واقتصاص تلقائي بالـ AI)
+        🖼️ اختيار صور البطاقات / العقود من المعرض
         <input type="file" id="galleryInput" accept="image/*" multiple onclick="this.value=null">
     </label>
 
-    <!-- شريط التحكم العلوي العام -->
     <div class="global-control-bar">
-        <button class="btn-g-action btn-ai-enhance" onclick="aiAutoEnhanceAll()">✨ تحسين ومعالجة بالـ AI</button>
-        <button class="btn-g-action btn-g-copy" onclick="globalCopyFormat()">🎨 نسخ التنسيق العام</button>
-        <button class="btn-g-action btn-g-paste" id="globalPasteBtn" onclick="globalPasteFormatToAll()">📌 لصق للجميع</button>
+        <button class="btn-g-action btn-g-copy" id="globalCopyBtn" onclick="globalCopyFormat()">🎨 نسخ التنسيق</button>
+        <button class="btn-g-action btn-g-paste" id="globalPasteBtn" onclick="globalPasteFormat()">📌 لصق التنسيق</button>
         <button class="btn-g-action btn-g-save" onclick="manualSaveWork()">💾 حفظ العمل يدوياً</button>
     </div>
 
     <div id="sheetsContainer"></div>
     <div id="clearSection" style="max-width: 794px; margin: 0 auto;"></div>
 
-    <!-- نافذة الاقتصاص الاحترافية -->
+    <div id="touchDragGhost"><img id="touchDragGhostImg" src="" alt=""></div>
+
+    <!-- شاشة الاقتصاص -->
     <div id="cropperModal">
-        <div class="editor-top-bar">
-            <button class="btn-top-close" onclick="closeCropper()" title="إلغاء">✕</button>
-            <span class="editor-top-title">اسحب الزوايا لتعديل القص أو اضغط تحسين ذكي</span>
-            <button class="btn-top-save" onclick="saveCroppedResult()">حفظ</button>
+        <div class="cs-top-bar">
+            <button class="cs-btn-close" onclick="closeCropper()" title="إلغاء">✕</button>
+            <span class="cs-top-title">الاقتصاص</span>
+            <button class="cs-btn-check" onclick="confirmCropAndPreview()" title="تأكيد">✓</button>
         </div>
 
-        <div class="editor-workspace" id="workspaceArea">
+        <div class="cs-edge-switcher">
+            <button type="button" class="cs-edge-btn" id="btnContractEdges" onclick="detectContractEdges()">
+                📄 حواف العقد
+            </button>
+            <button type="button" class="cs-edge-btn active" id="btnCardEdges" onclick="detectCardEdgesOnly()">
+                🪪 حواف البطاقة
+            </button>
+        </div>
+
+        <div class="cs-workspace" id="workspaceArea">
             <canvas id="cropCanvas"></canvas>
-        </div>
 
-        <div class="editor-bottom-panel">
-            <div class="reset-row">
-                <button class="btn-box-zoom" onclick="resizeCropBox(0.035)" title="تكبير">+</button>
-                <button class="btn-reset-all" onclick="resetCropperState()">إعادة الضبط</button>
-                <button class="btn-box-zoom" onclick="resizeCropBox(-0.035)" title="تصغير">−</button>
+            <div class="cs-processing-overlay" id="csProcessing">
+                <div class="cs-logo-badge">CS</div>
             </div>
 
-            <div class="ruler-container">
-                <div class="ruler-ticks"></div>
-                <div class="ruler-center-mark"></div>
-                <input type="range" id="angleSlider" min="-45" max="45" value="0" step="0.5" oninput="onAngleSlide(this.value)">
-            </div>
-
-            <div class="quick-tools-row">
-                <button class="tool-circle-item" onclick="rotate90(-90)">
-                    <div class="circle-icon">↺</div>
-                    <span>تدوير يسار</span>
-                </button>
-                <button class="tool-circle-item" onclick="rotate90(90)">
-                    <div class="circle-icon">↻</div>
-                    <span>تدوير يمين</span>
-                </button>
-                <button class="tool-circle-item" onclick="resetZoomView()">
-                    <div class="circle-icon">🔍</div>
-                    <span>عرض كامل</span>
-                </button>
-                <button class="tool-circle-item" onclick="toggleAspectLock()">
-                    <div class="circle-icon" id="ratioIcon">🪪</div>
-                    <span id="ratioLabel">نسبة البطاقة</span>
-                </button>
-                <div class="tool-circle-item">
-                    <div class="circle-icon active-angle" id="angleBadge">0°</div>
-                    <span>تدوير</span>
+            <div id="csResultPreview">
+                <div class="cs-res-top">
+                    <button class="cs-btn-close" onclick="backToCropBox()" title="رجوع">✕</button>
+                    <button class="cs-res-done" onclick="finalizeResultToSheet()">تم</button>
+                </div>
+                <div class="cs-res-body">
+                    <img id="csPreviewImg" src="" alt="معاينة البطاقة">
+                </div>
+                <div class="cs-res-bottom">
+                    <button class="cs-res-action" onclick="backToCropBox()">
+                        <span style="font-size:1.2rem">✂️</span>
+                        <span>تعديل الإطار</span>
+                    </button>
+                    <button class="cs-res-action" onclick="togglePreviewEnhance()">
+                        <span style="font-size:1.2rem">✨</span>
+                        <span id="enhanceLabel">وضع: تحسين</span>
+                    </button>
+                    <button class="cs-res-action" onclick="finalizeResultToSheet()">
+                        <span style="font-size:1.2rem">📥</span>
+                        <span>إضافة للورقة</span>
+                    </button>
                 </div>
             </div>
         </div>
+
+        <div class="cs-bottom-bar" id="csBottomBar">
+            <button class="cs-tool-btn" id="btnAll" onclick="selectFullImageQuad()">
+                <span class="cs-icon-wrap">⛶</span>
+                <span>الكل</span>
+            </button>
+            <button class="cs-tool-btn active-tool" id="btnAuto" onclick="detectCardEdgesOnly()">
+                <span class="cs-icon-wrap">⚡<span class="cs-red-dot"></span></span>
+                <span>القص التلقائي</span>
+            </button>
+            <button class="cs-tool-btn" id="btnRight" onclick="rotate90(90)">
+                <span class="cs-icon-wrap">↻</span>
+                <span>الأيمن</span>
+            </button>
+            <button class="cs-tool-btn" id="btnLeft" onclick="rotate90(-90)">
+                <span class="cs-icon-wrap">↺</span>
+                <span>اليسار</span>
+            </button>
+        </div>
     </div>
 
-    <!-- حقل مخفي لاستبدال صورة فردية -->
     <input type="file" id="replaceInput" accept="image/*" style="display:none" onchange="handleReplaceFile(this)">
 
     <script>
+        const FULL_QUAD = {
+            tl: { x: 0, y: 0 },
+            tr: { x: 1, y: 0 },
+            br: { x: 1, y: 1 },
+            bl: { x: 0, y: 1 }
+        };
+        const STORAGE_KEY = 'pro_id_cards_v52';
+
         let cardsData = [];
         let activeRowIndex = -1;
         let activeSide = 'front';
         let replaceTargetIndex = -1;
         let replaceTargetSide = null;
 
-        let globalFormatData = null; // تخزين النسخ العلوي
+        let copiedFormat = null;
+        let selectedSlots = new Set();
 
         let rawOriginalImage = null;
         let rotatedCanvas = null;
-        let fineAngle = 0;
         let base90Angle = 0;
-        let lockIdRatio = false;
 
-        let cropBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+        let cropQuad = {
+            tl: { x: 0.14, y: 0.36 },
+            tr: { x: 0.86, y: 0.36 },
+            br: { x: 0.86, y: 0.68 },
+            bl: { x: 0.14, y: 0.68 }
+        };
 
-        let viewCam = { scale: 1, offsetX: 0, offsetY: 0 };
-        let targetCam = { scale: 1, offsetX: 0, offsetY: 0 };
-        let animFrameId = null;
+        let pendingResultUrl = null;
+        let enhanceEnabled = true;
 
         let activeHandle = null;
         let dragStart = { x: 0, y: 0 };
-        let initialBox = null;
+        let initialQuad = null;
+        let loupeScreenPos = null;
+
+        let cssCanvasW = 360;
+        let cssCanvasH = 600;
+
+        let slotGesture = null;
+        let touchDragState = null;
+        let suppressNextClick = false;
 
         const canvas = document.getElementById('cropCanvas');
         const ctx = canvas.getContext('2d');
         const workspace = document.getElementById('workspaceArea');
 
+        function cloneQuad(q) {
+            return {
+                tl: { x: q.tl.x, y: q.tl.y },
+                tr: { x: q.tr.x, y: q.tr.y },
+                br: { x: q.br.x, y: q.br.y },
+                bl: { x: q.bl.x, y: q.bl.y }
+            };
+        }
+
+        function isFullQuad(q) {
+            if (!q || !q.tl || !q.tr || !q.br || !q.bl) return false;
+            const eps = 0.005;
+            return (
+                Math.abs(q.tl.x - 0) < eps && Math.abs(q.tl.y - 0) < eps &&
+                Math.abs(q.tr.x - 1) < eps && Math.abs(q.tr.y - 0) < eps &&
+                Math.abs(q.br.x - 1) < eps && Math.abs(q.br.y - 1) < eps &&
+                Math.abs(q.bl.x - 0) < eps && Math.abs(q.bl.y - 1) < eps
+            );
+        }
+
+        function getSlotKey(rowIndex, side) {
+            return `${rowIndex}_${side}`;
+        }
+
+        function isAlreadyCroppedCard(img) {
+            if (!img || !img.naturalWidth || !img.naturalHeight) return false;
+            const ratio = img.naturalWidth / img.naturalHeight;
+            const isLandscapeCard = ratio >= 1.42 && ratio <= 1.85;
+            const isPortraitCard = ratio >= 0.54 && ratio <= 0.70;
+            return isLandscapeCard || isPortraitCard;
+        }
+
+        function setActiveBottomTool(toolId) {
+            ['btnAll', 'btnAuto', 'btnRight', 'btnLeft'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.toggle('active-tool', id === toolId);
+            });
+        }
+
+        function setEdgeModeButton(mode) {
+            const btnContract = document.getElementById('btnContractEdges');
+            const btnCard = document.getElementById('btnCardEdges');
+            if (btnContract) btnContract.classList.toggle('active', mode === 'contract');
+            if (btnCard) btnCard.classList.toggle('active', mode === 'card');
+        }
+
+        function detectAutoOrientationAngle(img) {
+            if (!img || !img.naturalWidth || !img.naturalHeight) return 0;
+            const ratio = img.naturalWidth / img.naturalHeight;
+            if (ratio > 1.28) {
+                return 270;
+            }
+            return 0;
+        }
+
+        /**
+         * تحديد حواف العقد بالكامل داخل الصورة (يستبعد أطراف الخلفية الداكنة/الخشبية إن وجدت ويحافظ على حدود الورقة)
+         */
+        function detectContractQuad(source) {
+            if (!source) return cloneQuad(FULL_QUAD);
+            const srcW = source.naturalWidth || source.width;
+            const srcH = source.naturalHeight || source.height;
+            if (!srcW || !srcH) return cloneQuad(FULL_QUAD);
+
+            try {
+                const sw = Math.min(480, srcW);
+                const sh = Math.max(120, Math.round((srcH / srcW) * sw));
+                const tmp = document.createElement('canvas');
+                tmp.width = sw;
+                tmp.height = sh;
+                const tCtx = tmp.getContext('2d');
+                tCtx.imageSmoothingEnabled = true;
+                tCtx.drawImage(source, 0, 0, sw, sh);
+                const px = tCtx.getImageData(0, 0, sw, sh).data;
+
+                const isPaperPixel = (x, y) => {
+                    const idx = (y * sw + x) * 4;
+                    const r = px[idx], g = px[idx + 1], b = px[idx + 2];
+                    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                    const sat = Math.max(r, g, b) - Math.min(r, g, b);
+                    return lum > 135 && sat < 55;
+                };
+
+                let top = 0, bottom = sh - 1, left = 0, right = sw - 1;
+                const maxTrimY = Math.floor(sh * 0.18);
+                const maxTrimX = Math.floor(sw * 0.18);
+
+                for (let y = 0; y < maxTrimY; y++) {
+                    let paperCount = 0;
+                    for (let x = 0; x < sw; x += 4) if (isPaperPixel(x, y)) paperCount++;
+                    if (paperCount / (sw / 4) > 0.35) { top = y; break; }
+                }
+
+                for (let y = sh - 1; y >= sh - maxTrimY; y--) {
+                    let paperCount = 0;
+                    for (let x = 0; x < sw; x += 4) if (isPaperPixel(x, y)) paperCount++;
+                    if (paperCount / (sw / 4) > 0.35) { bottom = y; break; }
+                }
+
+                for (let x = 0; x < maxTrimX; x++) {
+                    let paperCount = 0;
+                    for (let y = 0; y < sh; y += 4) if (isPaperPixel(x, y)) paperCount++;
+                    if (paperCount / (sh / 4) > 0.35) { left = x; break; }
+                }
+
+                for (let x = sw - 1; x >= sw - maxTrimX; x--) {
+                    let paperCount = 0;
+                    for (let y = 0; y < sh; y += 4) if (isPaperPixel(x, y)) paperCount++;
+                    if (paperCount / (sh / 4) > 0.35) { right = x; break; }
+                }
+
+                const padX = Math.round((right - left) * 0.01);
+                const padY = Math.round((bottom - top) * 0.01);
+
+                const x1 = Math.max(0, (left - padX) / sw);
+                const y1 = Math.max(0, (top - padY) / sh);
+                const x2 = Math.min(1, (right + padX) / sw);
+                const y2 = Math.min(1, (bottom + padY) / sh);
+
+                if (x2 - x1 > 0.55 && y2 - y1 > 0.55) {
+                    return {
+                        tl: { x: x1, y: y1 },
+                        tr: { x: x2, y: y1 },
+                        br: { x: x2, y: y2 },
+                        bl: { x: x1, y: y2 }
+                    };
+                }
+            } catch (e) {
+                console.warn(e);
+            }
+
+            return cloneQuad(FULL_QUAD);
+        }
+
+        function detectContractEdges() {
+            setEdgeModeButton('contract');
+            setActiveBottomTool(null);
+            const targetSrc = rotatedCanvas || rawOriginalImage;
+            if (!targetSrc) return;
+            cropQuad = detectContractQuad(targetSrc);
+            renderCropperCanvas();
+        }
+
+        function detectCardQuad(source) {
+            if (!source) return cloneQuad({
+                tl: { x: 0.14, y: 0.36 }, tr: { x: 0.86, y: 0.36 },
+                br: { x: 0.86, y: 0.68 }, bl: { x: 0.14, y: 0.68 }
+            });
+            const srcW = source.naturalWidth || source.width;
+            const srcH = source.naturalHeight || source.height;
+            if (!srcW || !srcH) return cloneQuad({
+                tl: { x: 0.14, y: 0.36 }, tr: { x: 0.86, y: 0.36 },
+                br: { x: 0.86, y: 0.68 }, bl: { x: 0.14, y: 0.68 }
+            });
+
+            const imgRatio = srcW / srcH;
+            if ((imgRatio >= 1.42 && imgRatio <= 1.85) || (imgRatio >= 0.54 && imgRatio <= 0.70)) {
+                return cloneQuad(FULL_QUAD);
+            }
+
+            try {
+                const sw = Math.min(640, srcW);
+                const sh = Math.max(160, Math.round((srcH / srcW) * sw));
+                const tmp = document.createElement('canvas');
+                tmp.width = sw;
+                tmp.height = sh;
+                const tCtx = tmp.getContext('2d');
+                tCtx.imageSmoothingEnabled = true;
+                tCtx.imageSmoothingQuality = 'high';
+                tCtx.drawImage(source, 0, 0, sw, sh);
+                const px = tCtx.getImageData(0, 0, sw, sh).data;
+
+                const gridN = 32;
+                const cw = sw / gridN;
+                const ch = sh / gridN;
+
+                const featGrid = Array.from({ length: gridN }, () => new Float32Array(gridN));
+                const edgeGrid = Array.from({ length: gridN }, () => new Float32Array(gridN));
+
+                for (let r = 0; r < gridN; r++) {
+                    for (let c = 0; c < gridN; c++) {
+                        const x0 = Math.floor(c * cw);
+                        const y0 = Math.floor(r * ch);
+                        const x1 = Math.min(sw - 1, Math.floor((c + 1) * cw));
+                        const y1 = Math.min(sh - 1, Math.floor((r + 1) * ch));
+
+                        let fSum = 0;
+                        let eSum = 0;
+                        let count = 0;
+
+                        for (let y = y0 + 1; y < y1; y++) {
+                            for (let x = x0 + 1; x < x1; x++) {
+                                const idx = (y * sw + x) * 4;
+                                const idxL = (y * sw + (x - 1)) * 4;
+                                const idxU = ((y - 1) * sw + x) * 4;
+
+                                const r0 = px[idx], g0 = px[idx + 1], b0 = px[idx + 2];
+                                const lum = 0.299 * r0 + 0.587 * g0 + 0.114 * b0;
+                                const lumL = 0.299 * px[idxL] + 0.587 * px[idxL + 1] + 0.114 * px[idxL + 2];
+                                const lumU = 0.299 * px[idxU] + 0.587 * px[idxU + 1] + 0.114 * px[idxU + 2];
+
+                                const grad = Math.abs(lum - lumL) + Math.abs(lum - lumU);
+                                const sat = Math.max(r0, g0, b0) - Math.min(r0, g0, b0);
+                                const isCardTone = (r0 > 70 && g0 > 45 && b0 > 30 && Math.abs(r0 - b0) > 12) || sat > 18;
+                                const darkGraphic = lum < 145 ? (145 - lum) * 0.45 : 0;
+
+                                fSum += grad * 0.7 + sat * 1.1 + darkGraphic + (isCardTone ? 14 : 0);
+                                eSum += grad;
+                                count++;
+                            }
+                        }
+
+                        featGrid[r][c] = count > 0 ? fSum / count : 0;
+                        edgeGrid[r][c] = count > 0 ? eSum / count : 0;
+                    }
+                }
+
+                const prefFeat = Array.from({ length: gridN + 1 }, () => new Float32Array(gridN + 1));
+                const prefEdge = Array.from({ length: gridN + 1 }, () => new Float32Array(gridN + 1));
+
+                for (let r = 1; r <= gridN; r++) {
+                    for (let c = 1; c <= gridN; c++) {
+                        prefFeat[r][c] = featGrid[r - 1][c - 1]
+                            + prefFeat[r - 1][c]
+                            + prefFeat[r][c - 1]
+                            - prefFeat[r - 1][c - 1];
+                        prefEdge[r][c] = edgeGrid[r - 1][c - 1]
+                            + prefEdge[r - 1][c]
+                            + prefEdge[r][c - 1]
+                            - prefEdge[r - 1][c - 1];
+                    }
+                }
+
+                const rectSum = (pref, r1, c1, r2, c2) => {
+                    return pref[r2][c2] - pref[r1][c2] - pref[r2][c1] + pref[r1][c1];
+                };
+
+                const cardAspectInGrid = (1.586 * sh) / sw;
+                let bestScore = -Infinity;
+                let bestRect = null;
+
+                for (let hCells = 6; hCells <= 13; hCells++) {
+                    const idealW = Math.max(7, Math.min(gridN - 3, Math.round(hCells * cardAspectInGrid)));
+                    const wCandidates = Array.from(new Set([
+                        Math.max(7, idealW - 1),
+                        idealW,
+                        Math.min(gridN - 3, idealW + 1)
+                    ]));
+
+                    for (const wCells of wCandidates) {
+                        for (let r1 = 3; r1 <= gridN - hCells - 1; r1++) {
+                            const r2 = r1 + hCells;
+                            for (let c1 = 2; c1 <= gridN - wCells - 2; c1++) {
+                                const c2 = c1 + wCells;
+
+                                const area = wCells * hCells;
+                                const avgFeat = rectSum(prefFeat, r1, c1, r2, c2) / area;
+
+                                const outerR1 = Math.max(0, r1 - 1);
+                                const outerR2 = Math.min(gridN, r2 + 1);
+                                const outerC1 = Math.max(0, c1 - 1);
+                                const outerC2 = Math.min(gridN, c2 + 1);
+                                const outerArea = (outerR2 - outerR1) * (outerC2 - outerC1);
+                                const ringArea = Math.max(1, outerArea - area);
+                                const ringEdge = (rectSum(prefEdge, outerR1, outerC1, outerR2, outerC2) - rectSum(prefEdge, r1, c1, r2, c2)) / ringArea;
+
+                                const areaRatio = area / (gridN * gridN);
+                                const sizeBonus = (areaRatio >= 0.06 && areaRatio <= 0.22) ? 22 : -14;
+                                const score = avgFeat * 1.5 + ringEdge * 1.2 + sizeBonus;
+
+                                if (score > bestScore) {
+                                    bestScore = score;
+                                    bestRect = {
+                                        x1: c1 / gridN,
+                                        y1: r1 / gridN,
+                                        x2: c2 / gridN,
+                                        y2: r2 / gridN
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (bestRect) {
+                    return {
+                        tl: { x: bestRect.x1, y: bestRect.y1 },
+                        tr: { x: bestRect.x2, y: bestRect.y1 },
+                        br: { x: bestRect.x2, y: bestRect.y2 },
+                        bl: { x: bestRect.x1, y: bestRect.y2 }
+                    };
+                }
+            } catch (err) {
+                console.warn(err);
+            }
+
+            return cloneQuad({
+                tl: { x: 0.14, y: 0.36 }, tr: { x: 0.86, y: 0.36 },
+                br: { x: 0.86, y: 0.68 }, bl: { x: 0.14, y: 0.68 }
+            });
+        }
+
+        function detectCardEdgesOnly() {
+            setEdgeModeButton('card');
+            setActiveBottomTool('btnAuto');
+            const targetSrc = rotatedCanvas || rawOriginalImage;
+            if (!targetSrc) return;
+            cropQuad = detectCardQuad(targetSrc);
+            renderCropperCanvas();
+        }
+
+        function selectFullImageQuad() {
+            setEdgeModeButton(null);
+            setActiveBottomTool('btnAll');
+            cropQuad = cloneQuad(FULL_QUAD);
+            renderCropperCanvas();
+        }
+
+        function createEmptyRow() {
+            return {
+                frontOriginal: null, frontOrigData: null, frontCropped: null,
+                frontQuad: cloneQuad(FULL_QUAD), frontRot: { base: 0, fine: 0 }, frontIsCropped: false,
+                frontView: { scale: 1, tx: 0, ty: 0 },
+                backOriginal: null, backOrigData: null, backCropped: null,
+                backQuad: cloneQuad(FULL_QUAD), backRot: { base: 0, fine: 0 }, backIsCropped: false,
+                backView: { scale: 1, tx: 0, ty: 0 }
+            };
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
-            const saved = localStorage.getItem('pro_id_cards_v35');
+            const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
-                    cardsData = parsed.map(item => {
-                        let fImg = null, bImg = null;
-                        if (item.frontOrigData) { fImg = new Image(); fImg.src = item.frontOrigData; }
-                        if (item.backOrigData) { bImg = new Image(); bImg.src = item.backOrigData; }
-                        return {
-                            frontOriginal: fImg,
-                            frontOrigData: item.frontOrigData,
-                            frontCropped: item.frontCropped,
-                            frontBox: item.frontBox || { x: 0.28, y: 0.45, w: 0.44, h: 0.277 },
-                            frontRot: item.frontRot || { base: 0, fine: 0 },
-                            backOriginal: bImg,
-                            backOrigData: item.backOrigData,
-                            backCropped: item.backCropped,
-                            backBox: item.backBox || { x: 0.28, y: 0.45, w: 0.44, h: 0.277 },
-                            backRot: item.backRot || { base: 0, fine: 0 }
-                        };
-                    });
+                    if (Array.isArray(parsed)) {
+                        cardsData = parsed.map(item => {
+                            let fImg = null, bImg = null;
+                            if (item.frontOrigData) { fImg = new Image(); fImg.src = item.frontOrigData; }
+                            if (item.backOrigData) { bImg = new Image(); bImg.src = item.backOrigData; }
+                            const fQuad = item.frontQuad || cloneQuad(FULL_QUAD);
+                            const bQuad = item.backQuad || cloneQuad(FULL_QUAD);
+
+                            return {
+                                frontOriginal: fImg,
+                                frontOrigData: item.frontOrigData,
+                                frontCropped: item.frontCropped,
+                                frontQuad: fQuad,
+                                frontRot: item.frontRot || { base: 0, fine: 0 },
+                                frontIsCropped: !!item.frontIsCropped || !isFullQuad(fQuad),
+                                frontView: item.frontView || { scale: 1, tx: 0, ty: 0 },
+                                backOriginal: bImg,
+                                backOrigData: item.backOrigData,
+                                backCropped: item.backCropped,
+                                backQuad: bQuad,
+                                backRot: item.backRot || { base: 0, fine: 0 },
+                                backIsCropped: !!item.backIsCropped || !isFullQuad(bQuad),
+                                backView: item.backView || { scale: 1, tx: 0, ty: 0 }
+                            };
+                        });
+                    }
                 } catch (e) { console.error(e); }
             }
             ensureEmptySlots();
+            updatePasteButtonState();
             renderSheets();
         });
 
         function saveToStorage() {
             try {
-                while (cardsData.length > 0) {
-                    const last = cardsData[cardsData.length - 1];
-                    if (!last.frontCropped && !last.backCropped) cardsData.pop();
+                const tempData = cardsData.slice();
+                while (tempData.length > 0) {
+                    const last = tempData[tempData.length - 1];
+                    if (!last.frontCropped && !last.backCropped) tempData.pop();
                     else break;
                 }
 
-                const cleanData = cardsData.map(item => ({
+                const cleanData = tempData.map(item => ({
                     frontOrigData: item.frontOrigData,
                     frontCropped: item.frontCropped,
-                    frontBox: item.frontBox,
+                    frontQuad: item.frontQuad,
                     frontRot: item.frontRot,
+                    frontIsCropped: item.frontIsCropped,
+                    frontView: item.frontView,
                     backOrigData: item.backOrigData,
                     backCropped: item.backCropped,
-                    backBox: item.backBox,
-                    backRot: item.backRot
+                    backQuad: item.backQuad,
+                    backRot: item.backRot,
+                    backIsCropped: item.backIsCropped,
+                    backView: item.backView
                 }));
-                localStorage.setItem('pro_id_cards_v35', JSON.stringify(cleanData));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanData));
             } catch (e) {
-                console.warn('تم تجاوز سعة التخزين المؤقت.');
+                console.warn('تم تجاوز سعة التخزين المؤقت للمتصفح.');
             }
         }
 
         function ensureEmptySlots() {
             while (cardsData.length < 5) {
-                cardsData.push({
-                    frontOriginal: null, frontOrigData: null, frontCropped: null, frontBox: { x: 0.28, y: 0.45, w: 0.44, h: 0.277 }, frontRot: { base: 0, fine: 0 },
-                    backOriginal: null, backOrigData: null, backCropped: null, backBox: { x: 0.28, y: 0.45, w: 0.44, h: 0.277 }, backRot: { base: 0, fine: 0 }
-                });
+                cardsData.push(createEmptyRow());
             }
         }
 
@@ -651,25 +1106,22 @@
 
         function clearAllData() {
             if (confirm('هل تريد مسح جميع البطاقات والبدء من جديد؟')) {
-                localStorage.removeItem('pro_id_cards_v35');
+                localStorage.removeItem(STORAGE_KEY);
                 cardsData = [];
+                selectedSlots.clear();
+                copiedFormat = null;
                 ensureEmptySlots();
+                updatePasteButtonState();
                 renderSheets();
             }
-        }
-
-        // ذكاء اصطناعي محاكي لاكتشاف إطار البطاقة وضبطه تلقائياً من العقود
-        function aiSmartDetectCardBox(img) {
-            // محاكاة خوارزمية ذكية لاكتشاف مقاسات البطاقة في عقود فودافون/الشركات
-            return { x: 0.26, y: 0.38, w: 0.48, h: 0.30 };
         }
 
         function buildRotatedFullResCanvas(img, totalDegrees) {
             const rad = (totalDegrees * Math.PI) / 180;
             const sin = Math.abs(Math.sin(rad));
             const cos = Math.abs(Math.cos(rad));
-            const newW = Math.round(img.naturalWidth * cos + img.naturalHeight * sin);
-            const newH = Math.round(img.naturalWidth * sin + img.naturalHeight * cos);
+            const newW = Math.max(1, Math.round(img.naturalWidth * cos + img.naturalHeight * sin));
+            const newH = Math.max(1, Math.round(img.naturalWidth * sin + img.naturalHeight * cos));
 
             const offCanvas = document.createElement('canvas');
             offCanvas.width = newW;
@@ -684,121 +1136,293 @@
             return offCanvas;
         }
 
-        function extractHighResCrop(sourceCanvas, box, enhance = false) {
-            const sx = Math.max(0, Math.round(box.x * sourceCanvas.width));
-            const sy = Math.max(0, Math.round(box.y * sourceCanvas.height));
-            const sw = Math.min(sourceCanvas.width - sx, Math.round(box.w * sourceCanvas.width));
-            const sh = Math.min(sourceCanvas.height - sy, Math.round(box.h * sourceCanvas.height));
+        function applyCamScannerEnhanceFilter(canvasEl) {
+            const w = canvasEl.width;
+            const h = canvasEl.height;
+            const ctx2d = canvasEl.getContext('2d');
+            const imgData = ctx2d.getImageData(0, 0, w, h);
+            const d = imgData.data;
 
+            for (let i = 0; i < d.length; i += 4) {
+                const r = d[i], g = d[i + 1], b = d[i + 2];
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                if (lum > 148) {
+                    const t = Math.min(1, (lum - 148) / 107);
+                    const lift = 185 + t * 70;
+                    const delta = lift - lum;
+                    d[i] = Math.min(255, Math.max(0, Math.round(r + delta * 0.96)));
+                    d[i + 1] = Math.min(255, Math.max(0, Math.round(g + delta * 0.96)));
+                    d[i + 2] = Math.min(255, Math.max(0, Math.round(b + delta * 0.96)));
+                } else {
+                    const contrast = 1.26;
+                    const bright = 10;
+                    d[i] = Math.max(0, Math.min(255, Math.round((r - 128) * contrast + 128 + bright)));
+                    d[i + 1] = Math.max(0, Math.min(255, Math.round((g - 128) * contrast + 128 + bright)));
+                    d[i + 2] = Math.max(0, Math.min(255, Math.round((b - 128) * contrast + 128 + bright)));
+                }
+            }
+
+            ctx2d.putImageData(imgData, 0, 0);
+        }
+
+        function extractQuadCrop(sourceCanvas, quad, keepOriginalRatio = false, applyEnhance = true) {
+            const full = isFullQuad(quad);
             const outCanvas = document.createElement('canvas');
-            outCanvas.width = Math.max(sw, 1200);
-            outCanvas.height = Math.round(outCanvas.width / 1.586);
-
             const outCtx = outCanvas.getContext('2d');
             outCtx.imageSmoothingEnabled = true;
             outCtx.imageSmoothingQuality = 'high';
-            outCtx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, outCanvas.width, outCanvas.height);
 
-            // معالجة بالذكاء الاصطناعي لزيادة التباين والوضوح وإزالة البهتان
-            if (enhance) {
-                const imgData = outCtx.getImageData(0, 0, outCanvas.width, outCanvas.height);
-                const d = imgData.data;
-                for (let i = 0; i < d.length; i += 4) {
-                    // زيادة التباين (Contrast Enhancement) وتفتيح الإضاءة الخفيفة
-                    let r = d[i], g = d[i+1], b = d[i+2];
-                    d[i] = Math.min(255, Math.max(0, (r - 128) * 1.15 + 135));
-                    d[i+1] = Math.min(255, Math.max(0, (g - 128) * 1.15 + 135));
-                    d[i+2] = Math.min(255, Math.max(0, (b - 128) * 1.15 + 135));
+            if (full) {
+                outCanvas.width = sourceCanvas.width;
+                outCanvas.height = sourceCanvas.height;
+                outCtx.drawImage(sourceCanvas, 0, 0);
+                if (applyEnhance) {
+                    applyCamScannerEnhanceFilter(outCanvas);
                 }
-                outCtx.putImageData(imgData, 0, 0);
+                return outCanvas.toDataURL('image/jpeg', 0.97);
             }
 
-            return outCanvas.toDataURL('image/jpeg', 0.96);
+            const wPx = sourceCanvas.width;
+            const hPx = sourceCanvas.height;
+
+            const tl = { x: quad.tl.x * wPx, y: quad.tl.y * hPx };
+            const tr = { x: quad.tr.x * wPx, y: quad.tr.y * hPx };
+            const br = { x: quad.br.x * wPx, y: quad.br.y * hPx };
+            const bl = { x: quad.bl.x * wPx, y: quad.bl.y * hPx };
+
+            const topW = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+            const botW = Math.hypot(br.x - bl.x, br.y - bl.y);
+            const leftH = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+            const rightH = Math.hypot(br.x - tr.x, br.y - tr.y);
+
+            const natW = Math.max(50, Math.round((topW + botW) / 2));
+            const natH = Math.max(50, Math.round((leftH + rightH) / 2));
+
+            const targetW = keepOriginalRatio ? natW : Math.max(natW, 1280);
+            const targetH = keepOriginalRatio ? natH : Math.max(1, Math.round(targetW * (natH / natW)));
+
+            const sCtx = sourceCanvas.getContext('2d');
+            const srcData = sCtx.getImageData(0, 0, wPx, hPx).data;
+
+            outCanvas.width = targetW;
+            outCanvas.height = targetH;
+            const outImgData = outCtx.createImageData(targetW, targetH);
+            const dstData = outImgData.data;
+
+            for (let dy = 0; dy < targetH; dy++) {
+                const v = dy / Math.max(1, targetH - 1);
+                const lx = tl.x + (bl.x - tl.x) * v;
+                const ly = tl.y + (bl.y - tl.y) * v;
+                const rx = tr.x + (br.x - tr.x) * v;
+                const ry = tr.y + (br.y - tr.y) * v;
+
+                for (let dx = 0; dx < targetW; dx++) {
+                    const u = dx / Math.max(1, targetW - 1);
+                    const sx = lx + (rx - lx) * u;
+                    const sy = ly + (ry - ly) * u;
+
+                    const x0 = Math.max(0, Math.min(wPx - 1, Math.floor(sx)));
+                    const y0 = Math.max(0, Math.min(hPx - 1, Math.floor(sy)));
+                    const x1 = Math.max(0, Math.min(wPx - 1, x0 + 1));
+                    const y1 = Math.max(0, Math.min(hPx - 1, y0 + 1));
+
+                    const fx = sx - x0;
+                    const fy = sy - y0;
+
+                    const i00 = (y0 * wPx + x0) * 4;
+                    const i10 = (y0 * wPx + x1) * 4;
+                    const i01 = (y1 * wPx + x0) * 4;
+                    const i11 = (y1 * wPx + x1) * 4;
+
+                    const dIdx = (dy * targetW + dx) * 4;
+                    for (let c = 0; c < 3; c++) {
+                        const topVal = srcData[i00 + c] * (1 - fx) + srcData[i10 + c] * fx;
+                        const botVal = srcData[i01 + c] * (1 - fx) + srcData[i11 + c] * fx;
+                        dstData[dIdx + c] = Math.round(topVal * (1 - fy) + botVal * fy);
+                    }
+                    dstData[dIdx + 3] = 255;
+                }
+            }
+
+            outCtx.putImageData(outImgData, 0, 0);
+
+            if (applyEnhance) {
+                applyCamScannerEnhanceFilter(outCanvas);
+            }
+
+            return outCanvas.toDataURL('image/jpeg', 0.97);
         }
 
-        function recomputeCroppedImage(item, side, enhance = false) {
+        function recomputeCroppedImage(item, side) {
             const origImg = side === 'front' ? item.frontOriginal : item.backOriginal;
             const origData = side === 'front' ? item.frontOrigData : item.backOrigData;
-            const box = side === 'front' ? item.frontBox : item.backBox;
+            const quad = side === 'front' ? item.frontQuad : item.backQuad;
             const rot = side === 'front' ? item.frontRot : item.backRot;
 
             if (!origData) return;
 
-            if (origImg && origImg.complete && origImg.naturalWidth > 0) {
-                const rotCanvas = buildRotatedFullResCanvas(origImg, (rot ? rot.base + rot.fine : 0));
-                const newUrl = extractHighResCrop(rotCanvas, box, enhance);
+            const applyFromImg = (imgEl) => {
+                const full = isFullQuad(quad);
+                const rotCanvas = buildRotatedFullResCanvas(imgEl, (rot ? rot.base + rot.fine : 0));
+                const newUrl = extractQuadCrop(rotCanvas, quad, full, true);
                 if (side === 'front') item.frontCropped = newUrl;
                 else item.backCropped = newUrl;
                 saveToStorage();
                 renderSheets();
+            };
+
+            if (origImg && origImg.complete && origImg.naturalWidth > 0) {
+                applyFromImg(origImg);
             } else {
                 const tempImg = new Image();
                 tempImg.onload = () => {
                     if (side === 'front') item.frontOriginal = tempImg;
                     else item.backOriginal = tempImg;
-                    const rotCanvas = buildRotatedFullResCanvas(tempImg, (rot ? rot.base + rot.fine : 0));
-                    const newUrl = extractHighResCrop(rotCanvas, box, enhance);
-                    if (side === 'front') item.frontCropped = newUrl;
-                    else item.backCropped = newUrl;
-                    saveToStorage();
-                    renderSheets();
+                    applyFromImg(tempImg);
                 };
                 tempImg.src = origData;
             }
         }
 
-        // نسخ التنسيق العام من أول بطاقة مضبوطة
+        function updatePasteButtonState() {
+            const pasteBtn = document.getElementById('globalPasteBtn');
+            if (!pasteBtn) return;
+            if (copiedFormat) {
+                pasteBtn.classList.add('ready');
+                pasteBtn.innerText = '📌 لصق لغير المقصوص';
+            } else {
+                pasteBtn.classList.remove('ready');
+                pasteBtn.innerText = '📌 لصق التنسيق';
+            }
+        }
+
         function globalCopyFormat() {
-            // نبحث عن أول بطاقة مقصوصة ومضبوطة لننسخ إعداداتها
-            let found = null;
+            let sourceItem = null;
+            let sourceSide = null;
+
             for (let i = 0; i < cardsData.length; i++) {
                 if (cardsData[i].frontCropped) {
-                    found = { box: cardsData[i].frontBox, rot: cardsData[i].frontRot };
+                    sourceItem = cardsData[i];
+                    sourceSide = 'front';
                     break;
                 } else if (cardsData[i].backCropped) {
-                    found = { box: cardsData[i].backBox, rot: cardsData[i].backRot };
+                    sourceItem = cardsData[i];
+                    sourceSide = 'back';
                     break;
                 }
             }
 
-            if (!found) {
-                alert('⚠️ يرجى ضبط بطاقة واحدة على الأقل أولاً لنسخ تنسيقها.');
+            if (!sourceItem) {
+                alert('⚠️ لا توجد بطاقة لنسخ تنسيقها.');
                 return;
             }
 
-            globalFormatData = found;
-            document.getElementById('globalPasteBtn').classList.add('active');
-            alert('🎨 تم نسخ التنسيق العام بنجاح! يمكنك الآن الضغط على (لصق للجميع) لتطبيقها فوراً.');
+            copiedFormat = {
+                quad: cloneQuad(sourceSide === 'front' ? sourceItem.frontQuad : sourceItem.backQuad),
+                rot: JSON.parse(JSON.stringify(sourceSide === 'front' ? sourceItem.frontRot : sourceItem.backRot))
+            };
+
+            updatePasteButtonState();
+            alert('🎨 تم نسخ التنسيق! لن يتم تطبيقه على البطاقات المقصوصة أصلاً.');
         }
 
-        // تطبيق التنسيق المنسوخ على كل البطاقات الموجودة بضغطة واحدة
-        function globalPasteFormatToAll() {
-            if (!globalFormatData) return;
+        function globalPasteFormat() {
+            if (!copiedFormat) {
+                alert('⚠️ اضغط على (نسخ التنسيق) أولاً.');
+                return;
+            }
 
-            cardsData.forEach(item => {
-                if (item.frontOrigData) {
-                    item.frontBox = JSON.parse(JSON.stringify(globalFormatData.box));
-                    item.frontRot = JSON.parse(JSON.stringify(globalFormatData.rot));
-                    recomputeCroppedImage(item, 'front');
+            let appliedCount = 0;
+            let skippedCroppedCount = 0;
+
+            const tryApplyToSlot = (item, side) => {
+                const origData = side === 'front' ? item.frontOrigData : item.backOrigData;
+                if (!origData) return;
+
+                const alreadyCropped = side === 'front'
+                    ? (item.frontIsCropped || !isFullQuad(item.frontQuad))
+                    : (item.backIsCropped || !isFullQuad(item.backQuad));
+
+                if (alreadyCropped) {
+                    skippedCroppedCount++;
+                    return;
                 }
-                if (item.backOrigData) {
-                    item.backBox = JSON.parse(JSON.stringify(globalFormatData.box));
-                    item.backRot = JSON.parse(JSON.stringify(globalFormatData.rot));
+
+                if (side === 'front') {
+                    item.frontQuad = cloneQuad(copiedFormat.quad);
+                    item.frontRot = JSON.parse(JSON.stringify(copiedFormat.rot));
+                    item.frontIsCropped = !isFullQuad(item.frontQuad);
+                    recomputeCroppedImage(item, 'front');
+                } else {
+                    item.backQuad = cloneQuad(copiedFormat.quad);
+                    item.backRot = JSON.parse(JSON.stringify(copiedFormat.rot));
+                    item.backIsCropped = !isFullQuad(item.backQuad);
                     recomputeCroppedImage(item, 'back');
                 }
+                appliedCount++;
+            };
+
+            cardsData.forEach(item => {
+                tryApplyToSlot(item, 'front');
+                tryApplyToSlot(item, 'back');
             });
 
-            alert('✨ تم تطبيق التنسيق والقص الذكي على جميع البطاقات بنجاح!');
+            if (appliedCount === 0) {
+                alert(skippedCroppedCount > 0
+                    ? 'ℹ️ تم تجاهل البطاقات المقصوصة أصلاً ولم يتم تغييرها.'
+                    : '⚠️ لم يتم العثور على صور غير مقصوصة لتطبيق التنسيق عليها.');
+                return;
+            }
+
+            alert(`✅ تم تطبيق التنسيق على (${appliedCount}) صورة غير مقصوصة (وتم استثناء المقصوصة أصلاً).`);
             renderSheets();
         }
 
-        // معالجة وتحسين بالذكاء الاصطناعي لكل البطاقات
-        function aiAutoEnhanceAll() {
-            cardsData.forEach(item => {
-                if (item.frontCropped) recomputeCroppedImage(item, 'front', true);
-                if (item.backCropped) recomputeCroppedImage(item, 'back', true);
-            });
-            alert('🤖 تم تطبيق المعالجة الذكية وتحسين الإضاءة والوضوح بالـ AI بنجاح!');
+        function placeImageIntoSlots(img, dataUrl) {
+            const alreadyCard = isAlreadyCroppedCard(img);
+            const autoAngle = detectAutoOrientationAngle(img);
+            const fullCanvas = buildRotatedFullResCanvas(img, autoAngle);
+            const chosenQuad = alreadyCard ? cloneQuad(FULL_QUAD) : detectCardQuad(fullCanvas);
+            const wasCropped = !isFullQuad(chosenQuad) || alreadyCard || autoAngle !== 0;
+            const resultUrl = extractQuadCrop(fullCanvas, chosenQuad, alreadyCard, true);
+
+            let placed = false;
+            for (let i = 0; i < cardsData.length; i++) {
+                if (!cardsData[i].frontCropped) {
+                    cardsData[i].frontOriginal = img;
+                    cardsData[i].frontOrigData = dataUrl;
+                    cardsData[i].frontCropped = resultUrl;
+                    cardsData[i].frontQuad = cloneQuad(chosenQuad);
+                    cardsData[i].frontRot = { base: autoAngle, fine: 0 };
+                    cardsData[i].frontIsCropped = wasCropped;
+                    cardsData[i].frontView = { scale: 1, tx: 0, ty: 0 };
+                    placed = true;
+                    break;
+                } else if (!cardsData[i].backCropped) {
+                    cardsData[i].backOriginal = img;
+                    cardsData[i].backOrigData = dataUrl;
+                    cardsData[i].backCropped = resultUrl;
+                    cardsData[i].backQuad = cloneQuad(chosenQuad);
+                    cardsData[i].backRot = { base: autoAngle, fine: 0 };
+                    cardsData[i].backIsCropped = wasCropped;
+                    cardsData[i].backView = { scale: 1, tx: 0, ty: 0 };
+                    placed = true;
+                    break;
+                }
+            }
+
+            if (!placed) {
+                const newRow = createEmptyRow();
+                newRow.frontOriginal = img;
+                newRow.frontOrigData = dataUrl;
+                newRow.frontCropped = resultUrl;
+                newRow.frontQuad = cloneQuad(chosenQuad);
+                newRow.frontRot = { base: autoAngle, fine: 0 };
+                newRow.frontIsCropped = wasCropped;
+                newRow.frontView = { scale: 1, tx: 0, ty: 0 };
+                cardsData.push(newRow);
+            }
         }
 
         document.getElementById('galleryInput').addEventListener('change', function(e) {
@@ -818,43 +1442,7 @@
 
                         if (loadedCount === files.length) {
                             loadedImages.forEach(entry => {
-                                const fullCanvas = buildRotatedFullResCanvas(entry.img, 0);
-                                // تشغيل خوارزمية الذكاء الاصطناعي لاكتشاف الإطار تلقائياً
-                                const detectedBox = aiSmartDetectCardBox(entry.img);
-                                const croppedUrl = extractHighResCrop(fullCanvas, detectedBox);
-
-                                let placed = false;
-                                for (let i = 0; i < cardsData.length; i++) {
-                                    if (!cardsData[i].frontCropped) {
-                                        cardsData[i].frontOriginal = entry.img;
-                                        cardsData[i].frontOrigData = entry.dataUrl;
-                                        cardsData[i].frontCropped = croppedUrl;
-                                        cardsData[i].frontBox = detectedBox;
-                                        cardsData[i].frontRot = { base: 0, fine: 0 };
-                                        placed = true;
-                                        break;
-                                    } else if (!cardsData[i].backCropped) {
-                                        cardsData[i].backOriginal = entry.img;
-                                        cardsData[i].backOrigData = entry.dataUrl;
-                                        cardsData[i].backCropped = croppedUrl;
-                                        cardsData[i].backBox = detectedBox;
-                                        cardsData[i].backRot = { base: 0, fine: 0 };
-                                        placed = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!placed) {
-                                    cardsData.push({
-                                        frontOriginal: entry.img,
-                                        frontOrigData: entry.dataUrl,
-                                        frontCropped: croppedUrl,
-                                        frontBox: detectedBox,
-                                        frontRot: { base: 0, fine: 0 },
-                                        backOriginal: null, backOrigData: null, backCropped: null,
-                                        backBox: detectedBox, backRot: { base: 0, fine: 0 }
-                                    });
-                                }
+                                if (entry) placeImageIntoSlots(entry.img, entry.dataUrl);
                             });
 
                             ensureEmptySlots();
@@ -869,45 +1457,48 @@
             this.value = '';
         });
 
-        function openCropper(rowIndex, side) {
+        function openCropper(rowIndex, side, event) {
+            if (suppressNextClick) {
+                suppressNextClick = false;
+                return;
+            }
+            if (event) event.stopPropagation();
             const item = cardsData[rowIndex];
             if (!item || !(side === 'front' ? item.frontCropped : item.backCropped)) return;
 
             activeRowIndex = rowIndex;
             activeSide = side;
+            enhanceEnabled = true;
+            loupeScreenPos = null;
+            document.getElementById('enhanceLabel').innerText = 'وضع: تحسين';
+            document.getElementById('csResultPreview').style.display = 'none';
+            document.getElementById('csProcessing').style.display = 'none';
 
             let imgObj = side === 'front' ? item.frontOriginal : item.backOriginal;
             const origData = side === 'front' ? item.frontOrigData : item.backOrigData;
-            const savedBox = side === 'front' ? item.frontBox : item.backBox;
+            const savedQuad = side === 'front' ? item.frontQuad : item.backQuad;
             const savedRot = side === 'front' ? item.frontRot : item.backRot;
 
             const startWithImage = (loadedImg) => {
                 rawOriginalImage = loadedImg;
-                base90Angle = savedRot ? savedRot.base : 0;
-                fineAngle = savedRot ? savedRot.fine : 0;
-                document.getElementById('angleSlider').value = fineAngle;
-                updateAngleBadge();
+                base90Angle = (savedRot && typeof savedRot.base === 'number') ? savedRot.base : detectAutoOrientationAngle(loadedImg);
 
-                rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
-                cropBox = savedBox ? JSON.parse(JSON.stringify(savedBox)) : { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+                rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle);
 
+                if (savedQuad && !isFullQuad(savedQuad)) {
+                    cropQuad = cloneQuad(savedQuad);
+                    setEdgeModeButton('card');
+                } else if (!isAlreadyCroppedCard(loadedImg)) {
+                    cropQuad = detectCardQuad(rotatedCanvas);
+                    setEdgeModeButton('card');
+                } else {
+                    cropQuad = cloneQuad(FULL_QUAD);
+                    setEdgeModeButton('contract');
+                }
+
+                setActiveBottomTool('btnAuto');
                 document.getElementById('cropperModal').style.display = 'flex';
                 resizeCanvasToWorkspace();
-                
-                const base = getBaseImageRect();
-                const cropPixelW = cropBox.w * base.w;
-                const targetScale = Math.min((canvas.width * 0.85) / cropPixelW, 3.5);
-
-                const cropCenterX = base.x + (cropBox.x + cropBox.w / 2) * base.w;
-                const cropCenterY = base.y + (cropBox.y + cropBox.h / 2) * base.h;
-
-                viewCam = {
-                    scale: targetScale,
-                    offsetX: (canvas.width / 2) - cropCenterX * targetScale,
-                    offsetY: (canvas.height / 2) - cropCenterY * targetScale
-                };
-                targetCam = { ...viewCam };
-
                 renderCropperCanvas();
             };
 
@@ -925,158 +1516,177 @@
         }
 
         function closeCropper() {
+            loupeScreenPos = null;
             document.getElementById('cropperModal').style.display = 'none';
-            if (animFrameId) cancelAnimationFrame(animFrameId);
+            document.getElementById('csResultPreview').style.display = 'none';
+            document.getElementById('csProcessing').style.display = 'none';
         }
 
         function resizeCanvasToWorkspace() {
-            canvas.width = workspace.clientWidth;
-            canvas.height = workspace.clientHeight;
+            cssCanvasW = Math.max(100, workspace.clientWidth);
+            cssCanvasH = Math.max(100, workspace.clientHeight);
+            const dpr = Math.min(window.devicePixelRatio || 1, 3);
+            canvas.width = Math.round(cssCanvasW * dpr);
+            canvas.height = Math.round(cssCanvasH * dpr);
         }
 
         window.addEventListener('resize', () => {
             if (document.getElementById('cropperModal').style.display === 'flex') {
                 resizeCanvasToWorkspace();
+                renderCropperCanvas();
             }
         });
 
         function getBaseImageRect() {
             if (!rotatedCanvas) return { x: 0, y: 0, w: 100, h: 100 };
-            const pad = 28;
-            const availW = canvas.width - pad * 2;
-            const availH = canvas.height - pad * 2;
+            const pad = 12;
+            const availW = Math.max(50, cssCanvasW - pad * 2);
+            const availH = Math.max(50, cssCanvasH - pad * 2);
             const scale = Math.min(availW / rotatedCanvas.width, availH / rotatedCanvas.height);
             const w = rotatedCanvas.width * scale;
             const h = rotatedCanvas.height * scale;
             return {
-                x: (canvas.width - w) / 2,
-                y: (canvas.height - h) / 2,
+                x: (cssCanvasW - w) / 2,
+                y: (cssCanvasH - h) / 2,
                 w: w,
                 h: h
             };
         }
 
-        function resetZoomView() {
-            if (!rotatedCanvas) return;
-            const base = getBaseImageRect();
-            const cropPixelW = cropBox.w * base.w;
-            const targetScale = Math.min((canvas.width * 0.85) / cropPixelW, 3.5);
-            const cropCenterX = base.x + (cropBox.x + cropBox.w / 2) * base.w;
-            const cropCenterY = base.y + (cropBox.y + cropBox.h / 2) * base.h;
-
-            targetCam = {
-                scale: targetScale,
-                offsetX: (canvas.width / 2) - cropCenterX * targetScale,
-                offsetY: (canvas.height / 2) - cropCenterY * targetScale
+        function quadToScreen(q, base) {
+            return {
+                tl: { x: base.x + q.tl.x * base.w, y: base.y + q.tl.y * base.h },
+                tr: { x: base.x + q.tr.x * base.w, y: base.y + q.tr.y * base.h },
+                br: { x: base.x + q.br.x * base.w, y: base.y + q.br.y * base.h },
+                bl: { x: base.x + q.bl.x * base.w, y: base.y + q.bl.y * base.h }
             };
-            animateCamera();
         }
 
-        function animateCamera() {
-            if (animFrameId) cancelAnimationFrame(animFrameId);
-            const step = () => {
-                const ease = 0.22;
-                viewCam.scale += (targetCam.scale - viewCam.scale) * ease;
-                viewCam.offsetX += (targetCam.offsetX - viewCam.offsetX) * ease;
-                viewCam.offsetY += (targetCam.offsetY - viewCam.offsetY) * ease;
+        function drawCamScannerLoupe(base, targetScreenPt) {
+            if (!loupeScreenPos || !targetScreenPt || !rotatedCanvas) return;
 
-                renderCropperCanvas();
+            const radius = 58;
+            const zoom = 2.3;
 
-                if (
-                    Math.abs(targetCam.scale - viewCam.scale) > 0.002 ||
-                    Math.abs(targetCam.offsetX - viewCam.offsetX) > 0.2 ||
-                    Math.abs(targetCam.offsetY - viewCam.offsetY) > 0.2
-                ) {
-                    animFrameId = requestAnimationFrame(step);
-                } else {
-                    viewCam = { ...targetCam };
-                    renderCropperCanvas();
-                }
-            };
-            animFrameId = requestAnimationFrame(step);
+            let lx = loupeScreenPos.x;
+            let ly = loupeScreenPos.y - 105;
+            lx = Math.max(radius + 10, Math.min(cssCanvasW - radius - 10, lx));
+            if (ly < radius + 10) {
+                ly = Math.min(cssCanvasH - radius - 10, loupeScreenPos.y + 105);
+            }
+
+            const normX = (targetScreenPt.x - base.x) / base.w;
+            const normY = (targetScreenPt.y - base.y) / base.h;
+            const srcX = normX * rotatedCanvas.width;
+            const srcY = normY * rotatedCanvas.height;
+
+            const sampleW = (radius * 2) / zoom * (rotatedCanvas.width / base.w);
+            const sampleH = (radius * 2) / zoom * (rotatedCanvas.height / base.h);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(lx, ly, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.clip();
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(
+                rotatedCanvas,
+                srcX - sampleW / 2,
+                srcY - sampleH / 2,
+                sampleW,
+                sampleH,
+                lx - radius,
+                ly - radius,
+                radius * 2,
+                radius * 2
+            );
+
+            ctx.strokeStyle = 'rgba(22, 163, 74, 0.75)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(lx - 12, ly);
+            ctx.lineTo(lx + 12, ly);
+            ctx.moveTo(lx, ly - 12);
+            ctx.lineTo(lx, ly + 12);
+            ctx.stroke();
+
+            ctx.restore();
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(lx, ly, radius, 0, Math.PI * 2);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = '#16a34a';
+            ctx.stroke();
+            ctx.restore();
         }
 
         function renderCropperCanvas() {
             if (!rotatedCanvas) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const base = getBaseImageRect();
+            const dpr = canvas.width / Math.max(1, cssCanvasW);
 
             ctx.save();
-            ctx.translate(viewCam.offsetX, viewCam.offsetY);
-            ctx.scale(viewCam.scale, viewCam.scale);
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, cssCanvasW, cssCanvasH);
+
+            const base = getBaseImageRect();
 
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(rotatedCanvas, base.x, base.y, base.w, base.h);
 
-            const bx = base.x + cropBox.x * base.w;
-            const by = base.y + cropBox.y * base.h;
-            const bw = cropBox.w * base.w;
-            const bh = cropBox.h * base.h;
+            const sp = quadToScreen(cropQuad, base);
 
-            ctx.fillStyle = 'rgba(244, 244, 245, 0.72)';
+            ctx.fillStyle = 'rgba(17, 24, 39, 0.36)';
             ctx.beginPath();
-            ctx.rect(base.x - 2000, base.y - 2000, base.w + 4000, base.h + 4000);
-            ctx.rect(bx, by, bw, bh);
+            ctx.rect(0, 0, cssCanvasW, cssCanvasH);
+            ctx.moveTo(sp.tl.x, sp.tl.y);
+            ctx.lineTo(sp.bl.x, sp.bl.y);
+            ctx.lineTo(sp.br.x, sp.br.y);
+            ctx.lineTo(sp.tr.x, sp.tr.y);
+            ctx.closePath();
             ctx.fill('evenodd');
 
-            const invScale = 1 / viewCam.scale;
-
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
-            ctx.lineWidth = 1 * invScale;
-            ctx.strokeRect(bx, by, bw, bh);
-
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-            ctx.lineWidth = 1 * invScale;
+            ctx.strokeStyle = '#16a34a';
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(bx + bw / 3, by);
-            ctx.lineTo(bx + bw / 3, by + bh);
-            ctx.moveTo(bx + (bw * 2) / 3, by);
-            ctx.lineTo(bx + (bw * 2) / 3, by + bh);
-            ctx.moveTo(bx, by + bh / 3);
-            ctx.lineTo(bx + bw, by + bh / 3);
-            ctx.moveTo(bx, by + (bh * 2) / 3);
-            ctx.lineTo(bx + bw, by + (bh * 2) / 3);
+            ctx.moveTo(sp.tl.x, sp.tl.y);
+            ctx.lineTo(sp.tr.x, sp.tr.y);
+            ctx.lineTo(sp.br.x, sp.br.y);
+            ctx.lineTo(sp.bl.x, sp.bl.y);
+            ctx.closePath();
             ctx.stroke();
 
-            ctx.strokeStyle = '#111111';
-            ctx.lineWidth = 4.2 * invScale;
-            ctx.lineCap = 'square';
+            const tm = { x: (sp.tl.x + sp.tr.x) / 2, y: (sp.tl.y + sp.tr.y) / 2 };
+            const bm = { x: (sp.bl.x + sp.br.x) / 2, y: (sp.bl.y + sp.br.y) / 2 };
+            const lm = { x: (sp.tl.x + sp.bl.x) / 2, y: (sp.tl.y + sp.bl.y) / 2 };
+            const rm = { x: (sp.tr.x + sp.br.x) / 2, y: (sp.tr.y + sp.br.y) / 2 };
 
-            const cornerLen = Math.min(22 * invScale, bw * 0.22, bh * 0.22);
-            const barLen = Math.min(24 * invScale, bw * 0.25, bh * 0.25);
+            const knobs = [sp.tl, sp.tr, sp.br, sp.bl, tm, bm, lm, rm];
+            knobs.forEach((pt, idx) => {
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, idx < 4 ? 8.5 : 6.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = '#16a34a';
+                ctx.stroke();
+            });
 
-            ctx.beginPath();
-            ctx.moveTo(bx, by + cornerLen);
-            ctx.lineTo(bx, by);
-            ctx.lineTo(bx + cornerLen, by);
+            if (activeHandle && activeHandle !== 'move' && loupeScreenPos) {
+                const handlePtMap = {
+                    tl: sp.tl, tr: sp.tr, br: sp.br, bl: sp.bl,
+                    t: tm, b: bm, l: lm, r: rm
+                };
+                drawCamScannerLoupe(base, handlePtMap[activeHandle] || loupeScreenPos);
+            }
 
-            ctx.moveTo(bx + bw - cornerLen, by);
-            ctx.lineTo(bx + bw, by);
-            ctx.lineTo(bx + bw, by + cornerLen);
-
-            ctx.moveTo(bx + bw, by + bh - cornerLen);
-            ctx.lineTo(bx + bw, by + bh);
-            ctx.lineTo(bx + bw - cornerLen, by + bh);
-
-            ctx.moveTo(bx + cornerLen, by + bh);
-            ctx.lineTo(bx, by + bh);
-            ctx.lineTo(bx, by + bh - cornerLen);
-
-            ctx.moveTo(bx + bw / 2 - barLen / 2, by);
-            ctx.lineTo(bx + bw / 2 + barLen / 2, by);
-
-            ctx.moveTo(bx + bw / 2 - barLen / 2, by + bh);
-            ctx.lineTo(bx + bw / 2 + barLen / 2, by + bh);
-
-            ctx.moveTo(bx, by + bh / 2 - barLen / 2);
-            ctx.lineTo(bx, by, by + bh / 2 + barLen / 2);
-
-            ctx.moveTo(bx + bw, by + bh / 2 - barLen / 2);
-            ctx.lineTo(bx + bw, by + bh / 2 + barLen / 2);
-
-            ctx.stroke();
             ctx.restore();
         }
 
@@ -1084,48 +1694,58 @@
             const rect = canvas.getBoundingClientRect();
             const sx = clientX - rect.left;
             const sy = clientY - rect.top;
-
-            const wx = (sx - viewCam.offsetX) / viewCam.scale;
-            const wy = (sy - viewCam.offsetY) / viewCam.scale;
-
             const base = getBaseImageRect();
+
             return {
-                x: (wx - base.x) / base.w,
-                y: (wy - base.y) / base.h,
-                wx: wx,
-                wy: wy
+                x: (sx - base.x) / base.w,
+                y: (sy - base.y) / base.h,
+                sx: sx,
+                sy: sy
             };
         }
 
+        function pointInQuad(px, py, q) {
+            const poly = [q.tl, q.tr, q.br, q.bl];
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > py) !== (yj > py)) &&
+                    (px < ((xj - xi) * (py - yi)) / ((yj - yi) || 1e-9) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
         function onTouchStart(e) {
+            if (document.getElementById('csResultPreview').style.display === 'flex') return;
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             const pt = screenToImageNorm(clientX, clientY);
             const base = getBaseImageRect();
+            const sp = quadToScreen(cropQuad, base);
 
-            const bx = base.x + cropBox.x * base.w;
-            const by = base.y + cropBox.y * base.h;
-            const bw = cropBox.w * base.w;
-            const bh = cropBox.h * base.h;
-
-            const hitRadius = 26 / viewCam.scale;
+            const tm = { x: (sp.tl.x + sp.tr.x) / 2, y: (sp.tl.y + sp.tr.y) / 2 };
+            const bm = { x: (sp.bl.x + sp.br.x) / 2, y: (sp.bl.y + sp.br.y) / 2 };
+            const lm = { x: (sp.tl.x + sp.bl.x) / 2, y: (sp.tl.y + sp.bl.y) / 2 };
+            const rm = { x: (sp.tr.x + sp.br.x) / 2, y: (sp.tr.y + sp.br.y) / 2 };
 
             const handles = [
-                { name: 'tl', x: bx, y: by },
-                { name: 'tr', x: bx + bw, y: by },
-                { name: 'br', x: bx + bw, y: by + bh },
-                { name: 'bl', x: bx, y: by + bh },
-                { name: 't',  x: bx + bw / 2, y: by },
-                { name: 'b',  x: bx + bw / 2, y: by + bh },
-                { name: 'l',  x: bx, y: by + bh / 2 },
-                { name: 'r',  x: bx + bw, y: by + bh / 2 }
+                { name: 'tl', x: sp.tl.x, y: sp.tl.y, r: 46 },
+                { name: 'tr', x: sp.tr.x, y: sp.tr.y, r: 46 },
+                { name: 'br', x: sp.br.x, y: sp.br.y, r: 46 },
+                { name: 'bl', x: sp.bl.x, y: sp.bl.y, r: 46 },
+                { name: 't',  x: tm.x, y: tm.y, r: 34 },
+                { name: 'b',  x: bm.x, y: bm.y, r: 34 },
+                { name: 'l',  x: lm.x, y: lm.y, r: 34 },
+                { name: 'r',  x: rm.x, y: rm.y, r: 34 }
             ];
 
             let closest = null;
-            let minDist = hitRadius;
+            let minDist = Infinity;
             handles.forEach(h => {
-                const d = Math.hypot(pt.wx - h.x, pt.wy - h.y);
-                if (d < minDist) {
+                const d = Math.hypot(pt.sx - h.x, pt.sy - h.y);
+                if (d <= h.r && d < minDist) {
                     minDist = d;
                     closest = h.name;
                 }
@@ -1133,19 +1753,27 @@
 
             if (closest) {
                 activeHandle = closest;
-            } else if (pt.wx >= bx && pt.wx <= bx + bw && pt.wy >= by && pt.wy <= by + bh) {
+                loupeScreenPos = { x: pt.sx, y: pt.sy };
+            } else if (pointInQuad(pt.sx, pt.sy, sp)) {
                 activeHandle = 'move';
+                loupeScreenPos = null;
             } else {
                 activeHandle = null;
+                loupeScreenPos = null;
                 return;
             }
 
             dragStart = { x: pt.x, y: pt.y };
-            initialBox = { ...cropBox };
+            initialQuad = cloneQuad(cropQuad);
+            renderCropperCanvas();
+        }
+
+        function clamp01(v) {
+            return Math.max(0, Math.min(1, v));
         }
 
         function onTouchMove(e) {
-            if (!activeHandle) return;
+            if (!activeHandle || !initialQuad) return;
             e.preventDefault();
 
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1154,47 +1782,53 @@
 
             const dx = pt.x - dragStart.x;
             const dy = pt.y - dragStart.y;
-            const minSize = 0.08;
-
-            let { x, y, w, h } = initialBox;
+            const q = cloneQuad(initialQuad);
 
             if (activeHandle === 'move') {
-                x = Math.max(0, Math.min(1 - w, x + dx));
-                y = Math.max(0, Math.min(1 - h, y + dy));
-            } else {
-                if (activeHandle.includes('l')) {
-                    const newX = Math.max(0, Math.min(x + w - minSize, x + dx));
-                    w = (x + w) - newX;
-                    x = newX;
-                }
-                if (activeHandle.includes('r')) {
-                    w = Math.max(minSize, Math.min(1 - x, w + dx));
-                }
-                if (activeHandle.includes('t')) {
-                    const newY = Math.max(0, Math.min(y + h - minSize, y + dy));
-                    h = (y + h) - newY;
-                    y = newY;
-                }
-                if (activeHandle.includes('b')) {
-                    h = Math.max(minSize, Math.min(1 - y, h + dy));
-                }
+                const minX = Math.min(q.tl.x, q.tr.x, q.br.x, q.bl.x);
+                const maxX = Math.max(q.tl.x, q.tr.x, q.br.x, q.bl.x);
+                const minY = Math.min(q.tl.y, q.tr.y, q.br.y, q.bl.y);
+                const maxY = Math.max(q.tl.y, q.tr.y, q.br.y, q.bl.y);
 
-                if (lockIdRatio && rotatedCanvas) {
-                    const imgAspect = rotatedCanvas.width / rotatedCanvas.height;
-                    const targetH = (w * imgAspect) / 1.586;
-                    if (y + targetH <= 1) {
-                        h = targetH;
-                    }
-                }
+                const safeDx = Math.max(-minX, Math.min(1 - maxX, dx));
+                const safeDy = Math.max(-minY, Math.min(1 - maxY, dy));
+
+                ['tl', 'tr', 'br', 'bl'].forEach(k => {
+                    q[k].x = clamp01(q[k].x + safeDx);
+                    q[k].y = clamp01(q[k].y + safeDy);
+                });
+            } else if (['tl', 'tr', 'br', 'bl'].includes(activeHandle)) {
+                q[activeHandle].x = clamp01(q[activeHandle].x + dx);
+                q[activeHandle].y = clamp01(q[activeHandle].y + dy);
+                loupeScreenPos = { x: pt.sx, y: pt.sy };
+            } else if (activeHandle === 't') {
+                q.tl.y = clamp01(q.tl.y + dy);
+                q.tr.y = clamp01(q.tr.y + dy);
+                loupeScreenPos = { x: pt.sx, y: pt.sy };
+            } else if (activeHandle === 'b') {
+                q.bl.y = clamp01(q.bl.y + dy);
+                q.br.y = clamp01(q.br.y + dy);
+                loupeScreenPos = { x: pt.sx, y: pt.sy };
+            } else if (activeHandle === 'l') {
+                q.tl.x = clamp01(q.tl.x + dx);
+                q.bl.x = clamp01(q.bl.x + dx);
+                loupeScreenPos = { x: pt.sx, y: pt.sy };
+            } else if (activeHandle === 'r') {
+                q.tr.x = clamp01(q.tr.x + dx);
+                q.br.x = clamp01(q.br.x + dx);
+                loupeScreenPos = { x: pt.sx, y: pt.sy };
             }
 
-            cropBox = { x, y, w, h };
+            cropQuad = q;
             renderCropperCanvas();
         }
 
         function onTouchEnd() {
-            if (activeHandle) {
-                activeHandle = null;
+            activeHandle = null;
+            initialQuad = null;
+            loupeScreenPos = null;
+            if (document.getElementById('cropperModal').style.display === 'flex') {
+                renderCropperCanvas();
             }
         }
 
@@ -1205,96 +1839,63 @@
         window.addEventListener('mouseup', onTouchEnd);
         window.addEventListener('touchend', onTouchEnd);
 
-        function resizeCropBox(delta) {
-            if (!rotatedCanvas) return;
-            const cx = cropBox.x + cropBox.w / 2;
-            const cy = cropBox.y + cropBox.h / 2;
-            const aspect = cropBox.w / cropBox.h;
-
-            let newW = Math.max(0.12, Math.min(0.98, cropBox.w + delta));
-            let newH = newW / aspect;
-
-            if (newH > 0.98) {
-                newH = 0.98;
-                newW = newH * aspect;
-            }
-            if (newH < 0.08) {
-                newH = 0.08;
-                newW = newH * aspect;
-            }
-
-            const newX = Math.max(0, Math.min(1 - newW, cx - newW / 2));
-            const newY = Math.max(0, Math.min(1 - newH, cy - newH / 2));
-
-            cropBox = { x: newX, y: newY, w: newW, h: newH };
-            renderCropperCanvas();
-        }
-
-        function onAngleSlide(val) {
-            fineAngle = parseFloat(val);
-            updateAngleBadge();
-            if (!rawOriginalImage) return;
-            rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
-            renderCropperCanvas();
-        }
-
         function rotate90(delta) {
+            setActiveBottomTool(delta > 0 ? 'btnRight' : 'btnLeft');
             base90Angle = (base90Angle + delta + 360) % 360;
             if (!rawOriginalImage) return;
-            rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle + fineAngle);
+            rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, base90Angle);
+            cropQuad = detectCardQuad(rotatedCanvas);
+            setEdgeModeButton('card');
             renderCropperCanvas();
         }
 
-        function updateAngleBadge() {
-            const badge = document.getElementById('angleBadge');
-            badge.innerText = (fineAngle > 0 ? '+' : '') + Math.round(fineAngle) + '°';
+        function confirmCropAndPreview() {
+            if (activeRowIndex === -1 || !rotatedCanvas) return;
+
+            const proc = document.getElementById('csProcessing');
+            proc.style.display = 'flex';
+
+            setTimeout(() => {
+                const full = isFullQuad(cropQuad);
+                pendingResultUrl = extractQuadCrop(rotatedCanvas, cropQuad, full, enhanceEnabled);
+                document.getElementById('csPreviewImg').src = pendingResultUrl;
+                proc.style.display = 'none';
+                document.getElementById('csResultPreview').style.display = 'flex';
+            }, 140);
         }
 
-        function toggleAspectLock() {
-            lockIdRatio = !lockIdRatio;
-            const icon = document.getElementById('ratioIcon');
-            const label = document.getElementById('ratioLabel');
-            if (lockIdRatio) {
-                icon.style.background = '#f5b400';
-                icon.style.color = '#000';
-                label.innerText = 'نسبة مقفلة';
-                if (rotatedCanvas) {
-                    const imgAspect = rotatedCanvas.width / rotatedCanvas.height;
-                    cropBox.h = Math.min(1 - cropBox.y, (cropBox.w * imgAspect) / 1.586);
-                    renderCropperCanvas();
-                }
-            } else {
-                icon.style.background = '#f4f4f5';
-                icon.style.color = '#18181b';
-                label.innerText = 'نسبة البطاقة';
-            }
+        function togglePreviewEnhance() {
+            if (!rotatedCanvas) return;
+            enhanceEnabled = !enhanceEnabled;
+            document.getElementById('enhanceLabel').innerText = enhanceEnabled ? 'وضع: تحسين' : 'وضع: الأصل';
+            const full = isFullQuad(cropQuad);
+            pendingResultUrl = extractQuadCrop(rotatedCanvas, cropQuad, full, enhanceEnabled);
+            document.getElementById('csPreviewImg').src = pendingResultUrl;
         }
 
-        function resetCropperState() {
-            base90Angle = 0;
-            fineAngle = 0;
-            document.getElementById('angleSlider').value = 0;
-            updateAngleBadge();
-            if (rawOriginalImage) {
-                rotatedCanvas = buildRotatedFullResCanvas(rawOriginalImage, 0);
-                cropBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
-                renderCropperCanvas();
-            }
+        function backToCropBox() {
+            document.getElementById('csResultPreview').style.display = 'none';
+            renderCropperCanvas();
         }
 
-        function saveCroppedResult() {
+        function finalizeResultToSheet() {
             if (activeRowIndex === -1 || !rotatedCanvas) return;
             const item = cardsData[activeRowIndex];
-            const highResUrl = extractHighResCrop(rotatedCanvas, cropBox);
+            const full = isFullQuad(cropQuad);
+            const finalUrl = pendingResultUrl || extractQuadCrop(rotatedCanvas, cropQuad, full, enhanceEnabled);
 
             if (activeSide === 'front') {
-                item.frontCropped = highResUrl;
-                item.frontBox = { ...cropBox };
-                item.frontRot = { base: base90Angle, fine: fineAngle };
+                item.frontCropped = finalUrl;
+                item.frontQuad = cloneQuad(cropQuad);
+                item.frontRot = { base: base90Angle, fine: 0 };
+                item.frontIsCropped = !full;
+                item.frontView = { scale: 1, tx: 0, ty: 0 };
             } else {
-                item.backCropped = highResUrl;
-                item.backBox = { ...cropBox };
-                item.backRot = { base: base90Angle, fine: fineAngle };
+                item.backCropped = finalUrl;
+                item.backQuad = cloneQuad(cropQuad);
+                item.backRot = { base: base90Angle, fine: 0 };
+                item.backIsCropped = !full;
+                item.backView = { scale: 1, tx: 0, ty: 0 };
             }
 
             closeCropper();
@@ -1307,16 +1908,24 @@
             const item = cardsData[rowIndex];
             if (!item) return;
 
+            selectedSlots.delete(getSlotKey(rowIndex, side));
+
             if (side === 'front') {
                 item.frontOriginal = null;
                 item.frontOrigData = null;
                 item.frontCropped = null;
-                item.frontBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+                item.frontQuad = cloneQuad(FULL_QUAD);
+                item.frontRot = { base: 0, fine: 0 };
+                item.frontIsCropped = false;
+                item.frontView = { scale: 1, tx: 0, ty: 0 };
             } else {
                 item.backOriginal = null;
                 item.backOrigData = null;
                 item.backCropped = null;
-                item.backBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
+                item.backQuad = cloneQuad(FULL_QUAD);
+                item.backRot = { base: 0, fine: 0 };
+                item.backIsCropped = false;
+                item.backView = { scale: 1, tx: 0, ty: 0 };
             }
 
             ensureEmptySlots();
@@ -1340,23 +1949,30 @@
             reader.onload = function(ev) {
                 const img = new Image();
                 img.onload = function() {
-                    const fullCanvas = buildRotatedFullResCanvas(img, 0);
-                    const detectedBox = aiSmartDetectCardBox(img);
-                    const croppedUrl = extractHighResCrop(fullCanvas, detectedBox);
+                    const alreadyCard = isAlreadyCroppedCard(img);
+                    const autoAngle = detectAutoOrientationAngle(img);
+                    const fullCanvas = buildRotatedFullResCanvas(img, autoAngle);
+                    const chosenQuad = alreadyCard ? cloneQuad(FULL_QUAD) : detectCardQuad(fullCanvas);
+                    const wasCropped = !isFullQuad(chosenQuad) || alreadyCard || autoAngle !== 0;
+                    const resultUrl = extractQuadCrop(fullCanvas, chosenQuad, alreadyCard, true);
 
                     const item = cardsData[replaceTargetIndex];
                     if (replaceTargetSide === 'front') {
                         item.frontOriginal = img;
                         item.frontOrigData = ev.target.result;
-                        item.frontCropped = croppedUrl;
-                        item.frontBox = detectedBox;
-                        item.frontRot = { base: 0, fine: 0 };
+                        item.frontCropped = resultUrl;
+                        item.frontQuad = cloneQuad(chosenQuad);
+                        item.frontRot = { base: autoAngle, fine: 0 };
+                        item.frontIsCropped = wasCropped;
+                        item.frontView = { scale: 1, tx: 0, ty: 0 };
                     } else {
                         item.backOriginal = img;
                         item.backOrigData = ev.target.result;
-                        item.backCropped = croppedUrl;
-                        item.backBox = detectedBox;
-                        item.backRot = { base: 0, fine: 0 };
+                        item.backCropped = resultUrl;
+                        item.backQuad = cloneQuad(chosenQuad);
+                        item.backRot = { base: autoAngle, fine: 0 };
+                        item.backIsCropped = wasCropped;
+                        item.backView = { scale: 1, tx: 0, ty: 0 };
                     }
 
                     ensureEmptySlots();
@@ -1370,63 +1986,75 @@
             reader.readAsDataURL(file);
         }
 
-        function handleDragStart(e, rowIndex, side) {
-            e.dataTransfer.setData('text/plain', JSON.stringify({ rowIndex, side }));
-        }
+        function moveOrSwapSlots(srcRowIndex, srcSide, targetRowIndex, targetSide) {
+            if (srcRowIndex === targetRowIndex && srcSide === targetSide) return;
 
-        function handleDragOver(e) {
-            e.preventDefault();
-        }
+            while (cardsData.length <= Math.max(srcRowIndex, targetRowIndex)) {
+                cardsData.push(createEmptyRow());
+            }
 
-        function handleDrop(e, targetRowIndex, targetSide) {
-            e.preventDefault();
-            const dataStr = e.dataTransfer.getData('text/plain');
-            if (!dataStr) return;
-            const src = JSON.parse(dataStr);
-
-            if (src.rowIndex === targetRowIndex && src.side === targetSide) return;
-
-            const srcItem = cardsData[src.rowIndex];
+            const srcItem = cardsData[srcRowIndex];
             const targetItem = cardsData[targetRowIndex];
 
-            const srcData = src.side === 'front' ? {
-                orig: srcItem.frontOriginal, origData: srcItem.frontOrigData, cropped: srcItem.frontCropped, box: srcItem.frontBox, rot: srcItem.frontRot
+            const extractSlot = (item, side) => side === 'front' ? {
+                original: item.frontOriginal,
+                origData: item.frontOrigData,
+                cropped: item.frontCropped,
+                quad: cloneQuad(item.frontQuad || FULL_QUAD),
+                rot: JSON.parse(JSON.stringify(item.frontRot || { base: 0, fine: 0 })),
+                isCropped: !!item.frontIsCropped,
+                view: JSON.parse(JSON.stringify(item.frontView || { scale: 1, tx: 0, ty: 0 }))
             } : {
-                orig: srcItem.backOriginal, origData: srcItem.backOrigData, cropped: srcItem.backCropped, box: srcItem.backBox, rot: srcItem.backRot
+                original: item.backOriginal,
+                origData: item.backOrigData,
+                cropped: item.backCropped,
+                quad: cloneQuad(item.backQuad || FULL_QUAD),
+                rot: JSON.parse(JSON.stringify(item.backRot || { base: 0, fine: 0 })),
+                isCropped: !!item.backIsCropped,
+                view: JSON.parse(JSON.stringify(item.backView || { scale: 1, tx: 0, ty: 0 }))
             };
 
-            const targetHasData = targetSide === 'front' ? !!targetItem.frontCropped : !!targetItem.backCropped;
-
-            if (!targetHasData) {
-                if (targetSide === 'front') {
-                    targetItem.frontOriginal = srcData.orig; targetItem.frontOrigData = srcData.origData; targetItem.frontCropped = srcData.cropped; targetItem.frontBox = srcData.box; targetItem.frontRot = srcData.rot;
+            const assignSlot = (item, side, data) => {
+                if (side === 'front') {
+                    item.frontOriginal = data.original;
+                    item.frontOrigData = data.origData;
+                    item.frontCropped = data.cropped;
+                    item.frontQuad = data.quad;
+                    item.frontRot = data.rot;
+                    item.frontIsCropped = data.isCropped;
+                    item.frontView = data.view;
                 } else {
-                    targetItem.backOriginal = srcData.orig; targetItem.backOrigData = srcData.origData; targetItem.backCropped = srcData.cropped; targetItem.backBox = srcData.box; targetItem.backRot = srcData.rot;
+                    item.backOriginal = data.original;
+                    item.backOrigData = data.origData;
+                    item.backCropped = data.cropped;
+                    item.backQuad = data.quad;
+                    item.backRot = data.rot;
+                    item.backIsCropped = data.isCropped;
+                    item.backView = data.view;
                 }
+            };
 
-                if (src.side === 'front') {
-                    srcItem.frontOriginal = null; srcItem.frontOrigData = null; srcItem.frontCropped = null; srcItem.frontBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
-                } else {
-                    srcItem.backOriginal = null; srcItem.backOrigData = null; srcItem.backCropped = null; srcItem.backBox = { x: 0.28, y: 0.45, w: 0.44, h: 0.277 };
-                }
+            const emptySlot = {
+                original: null,
+                origData: null,
+                cropped: null,
+                quad: cloneQuad(FULL_QUAD),
+                rot: { base: 0, fine: 0 },
+                isCropped: false,
+                view: { scale: 1, tx: 0, ty: 0 }
+            };
+
+            const srcSlot = extractSlot(srcItem, srcSide);
+            const targetSlot = extractSlot(targetItem, targetSide);
+
+            if (!srcSlot.cropped) return;
+
+            if (!targetSlot.cropped) {
+                assignSlot(targetItem, targetSide, srcSlot);
+                assignSlot(srcItem, srcSide, emptySlot);
             } else {
-                const targetData = targetSide === 'front' ? {
-                    orig: targetItem.frontOriginal, origData: targetItem.frontOrigData, cropped: targetItem.frontCropped, box: targetItem.frontBox, rot: targetItem.frontRot
-                } : {
-                    orig: targetItem.backOriginal, origData: targetItem.backOrigData, cropped: targetItem.backCropped, box: targetItem.backBox, rot: targetItem.backRot
-                };
-
-                if (src.side === 'front') {
-                    srcItem.frontOriginal = targetData.orig; srcItem.frontOrigData = targetData.origData; srcItem.frontCropped = targetData.cropped; srcItem.frontBox = targetData.box; srcItem.frontRot = targetData.rot;
-                } else {
-                    srcItem.backOriginal = targetData.orig; srcItem.backOrigData = targetData.origData; srcItem.backCropped = targetData.cropped; srcItem.backBox = targetData.box; srcItem.backRot = targetData.rot;
-                }
-
-                if (targetSide === 'front') {
-                    targetItem.frontOriginal = srcData.orig; targetItem.frontOrigData = srcData.origData; targetItem.frontCropped = srcData.cropped; targetItem.frontBox = srcData.box; targetItem.frontRot = srcData.rot;
-                } else {
-                    targetItem.backOriginal = srcData.orig; targetItem.backOrigData = srcData.origData; targetItem.backCropped = srcData.cropped; targetItem.backBox = srcData.box; targetItem.backRot = srcData.rot;
-                }
+                assignSlot(targetItem, targetSide, srcSlot);
+                assignSlot(srcItem, srcSide, targetSlot);
             }
 
             ensureEmptySlots();
@@ -1434,43 +2062,265 @@
             renderSheets();
         }
 
-        function initDirectTouch(boxEl, rowIndex, side) {
-            let startX = 0, startY = 0;
-            let isDragging = false;
+        function clearTouchDragHighlights() {
+            document.querySelectorAll('.id-box.drag-target-over, .id-box.drag-source').forEach(el => {
+                el.classList.remove('drag-target-over');
+                el.classList.remove('drag-source');
+            });
+            document.body.classList.remove('dragging-slot-active');
+            const ghost = document.getElementById('touchDragGhost');
+            if (ghost) ghost.style.display = 'none';
+        }
+
+        function findSlotBoxAtPoint(clientX, clientY) {
+            const ghost = document.getElementById('touchDragGhost');
+            const prevDisplay = ghost ? ghost.style.display : 'none';
+            if (ghost) ghost.style.display = 'none';
+            const el = document.elementFromPoint(clientX, clientY);
+            if (ghost) ghost.style.display = prevDisplay;
+            return el ? el.closest('.id-box') : null;
+        }
+
+        function attachTwoFingerAndTouchDrag(boxEl, rowIndex, side) {
+            const getView = () => {
+                const item = cardsData[rowIndex];
+                if (!item) return { scale: 1, tx: 0, ty: 0 };
+                if (side === 'front') {
+                    if (!item.frontView) item.frontView = { scale: 1, tx: 0, ty: 0 };
+                    return item.frontView;
+                } else {
+                    if (!item.backView) item.backView = { scale: 1, tx: 0, ty: 0 };
+                    return item.backView;
+                }
+            };
+
+            const applyTransformToImg = (v) => {
+                const imgEl = boxEl.querySelector('img');
+                if (imgEl) {
+                    imgEl.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.scale})`;
+                }
+            };
+
+            let longPressTimer = null;
+
+            const cancelLongPress = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            };
 
             boxEl.addEventListener('touchstart', (e) => {
-                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') return;
-                isDragging = true;
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-            }, { passive: true });
+                if (e.target.closest('button')) return;
+                const v = getView();
+
+                if (e.touches.length === 2) {
+                    cancelLongPress();
+                    if (touchDragState && touchDragState.dragging) {
+                        clearTouchDragHighlights();
+                        touchDragState = null;
+                    }
+                    e.preventDefault();
+                    boxEl.classList.add('pinching-active');
+                    const t1 = e.touches[0], t2 = e.touches[1];
+                    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY) || 1;
+                    const midX = (t1.clientX + t2.clientX) / 2;
+                    const midY = (t1.clientY + t2.clientY) / 2;
+                    slotGesture = {
+                        mode: 'pinch',
+                        rowIndex,
+                        side,
+                        startDist: dist,
+                        startScale: v.scale,
+                        startMidX: midX,
+                        startMidY: midY,
+                        startTx: v.tx,
+                        startTy: v.ty,
+                        boxEl
+                    };
+                    return;
+                }
+
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    const item = cardsData[rowIndex];
+                    const imgSrc = side === 'front' ? (item && item.frontCropped) : (item && item.backCropped);
+
+                    touchDragState = {
+                        rowIndex,
+                        side,
+                        startX: touch.clientX,
+                        startY: touch.clientY,
+                        lastX: touch.clientX,
+                        lastY: touch.clientY,
+                        imgSrc,
+                        dragging: false,
+                        overBox: null
+                    };
+
+                    if (imgSrc) {
+                        longPressTimer = setTimeout(() => {
+                            if (!touchDragState || touchDragState.rowIndex !== rowIndex || touchDragState.side !== side) return;
+                            if (slotGesture && slotGesture.mode === 'pinch') return;
+                            touchDragState.dragging = true;
+                            suppressNextClick = true;
+                            document.body.classList.add('dragging-slot-active');
+                            boxEl.classList.add('drag-source');
+
+                            const ghost = document.getElementById('touchDragGhost');
+                            const ghostImg = document.getElementById('touchDragGhostImg');
+                            if (ghost && ghostImg) {
+                                ghostImg.src = imgSrc;
+                                ghost.style.left = touchDragState.lastX + 'px';
+                                ghost.style.top = touchDragState.lastY + 'px';
+                                ghost.style.display = 'block';
+                            }
+                            if (navigator.vibrate) {
+                                navigator.vibrate(25);
+                            }
+                        }, 250);
+                    }
+
+                    if (v.scale > 1.02) {
+                        slotGesture = {
+                            mode: 'pan',
+                            rowIndex,
+                            side,
+                            startX: touch.clientX,
+                            startY: touch.clientY,
+                            startTx: v.tx,
+                            startTy: v.ty,
+                            boxEl
+                        };
+                    }
+                }
+            }, { passive: false });
 
             boxEl.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                const currentX = e.touches[0].clientX;
-                const currentY = e.touches[0].clientY;
+                if (e.touches.length === 2 && slotGesture && slotGesture.mode === 'pinch' && slotGesture.rowIndex === rowIndex && slotGesture.side === side) {
+                    e.preventDefault();
+                    const v = getView();
+                    const t1 = e.touches[0], t2 = e.touches[1];
+                    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY) || 1;
+                    const midX = (t1.clientX + t2.clientX) / 2;
+                    const midY = (t1.clientY + t2.clientY) / 2;
 
-                const dx = (currentX - startX);
-                const dy = (currentY - startY);
-
-                if (Math.hypot(dx, dy) > 8) {
-                    const item = cardsData[rowIndex];
-                    if (!item) return;
-                    const box = side === 'front' ? item.frontBox : item.backBox;
-
-                    box.x = Math.max(0, Math.min(1 - box.w, box.x - (dx * 0.0006)));
-                    box.y = Math.max(0, Math.min(1 - box.h, box.y - (dy * 0.0006)));
-
-                    startX = currentX;
-                    startY = currentY;
-
-                    recomputeCroppedImage(item, side);
+                    const nextScale = Math.max(0.75, Math.min(3.5, slotGesture.startScale * (dist / slotGesture.startDist)));
+                    v.scale = nextScale;
+                    v.tx = slotGesture.startTx + (midX - slotGesture.startMidX);
+                    v.ty = slotGesture.startTy + (midY - slotGesture.startMidY);
+                    applyTransformToImg(v);
+                    return;
                 }
-            }, { passive: true });
 
-            boxEl.addEventListener('touchend', () => {
-                isDragging = false;
-            });
+                if (e.touches.length === 1 && touchDragState && touchDragState.rowIndex === rowIndex && touchDragState.side === side) {
+                    const touch = e.touches[0];
+                    touchDragState.lastX = touch.clientX;
+                    touchDragState.lastY = touch.clientY;
+                    const movedDist = Math.hypot(touch.clientX - touchDragState.startX, touch.clientY - touchDragState.startY);
+
+                    if (!touchDragState.dragging) {
+                        if (movedDist > 12) {
+                            cancelLongPress();
+                        }
+                        if (slotGesture && slotGesture.mode === 'pan') {
+                            const v = getView();
+                            v.tx = slotGesture.startTx + (touch.clientX - slotGesture.startX);
+                            v.ty = slotGesture.startTy + (touch.clientY - slotGesture.startY);
+                            applyTransformToImg(v);
+                        }
+                        return;
+                    }
+
+                    e.preventDefault();
+                    const ghost = document.getElementById('touchDragGhost');
+                    if (ghost) {
+                        ghost.style.left = touch.clientX + 'px';
+                        ghost.style.top = touch.clientY + 'px';
+                    }
+
+                    const targetBox = findSlotBoxAtPoint(touch.clientX, touch.clientY);
+                    if (touchDragState.overBox && touchDragState.overBox !== targetBox) {
+                        touchDragState.overBox.classList.remove('drag-target-over');
+                    }
+                    if (targetBox && targetBox !== boxEl) {
+                        targetBox.classList.add('drag-target-over');
+                        touchDragState.overBox = targetBox;
+                    } else {
+                        touchDragState.overBox = null;
+                    }
+                }
+            }, { passive: false });
+
+            const finishGesture = () => {
+                cancelLongPress();
+
+                if (touchDragState && touchDragState.rowIndex === rowIndex && touchDragState.side === side) {
+                    const wasDragging = touchDragState.dragging;
+                    const targetBox = touchDragState.overBox || findSlotBoxAtPoint(touchDragState.lastX, touchDragState.lastY);
+
+                    clearTouchDragHighlights();
+                    touchDragState = null;
+
+                    if (wasDragging && targetBox && targetBox.dataset.rowIndex !== undefined && targetBox.dataset.side) {
+                        const targetRow = parseInt(targetBox.dataset.rowIndex, 10);
+                        const targetSide = targetBox.dataset.side;
+                        moveOrSwapSlots(rowIndex, side, targetRow, targetSide);
+                        setTimeout(() => { suppressNextClick = false; }, 120);
+                        return;
+                    }
+                    if (wasDragging) {
+                        setTimeout(() => { suppressNextClick = false; }, 120);
+                    }
+                }
+
+                if (slotGesture && slotGesture.rowIndex === rowIndex && slotGesture.side === side) {
+                    const v = getView();
+                    if (v.scale < 1) {
+                        v.scale = 1;
+                        v.tx = 0;
+                        v.ty = 0;
+                        applyTransformToImg(v);
+                    }
+                    boxEl.classList.remove('pinching-active');
+                    slotGesture = null;
+                    saveToStorage();
+                }
+            };
+
+            boxEl.addEventListener('touchend', finishGesture);
+            boxEl.addEventListener('touchcancel', finishGesture);
+        }
+
+        function handleDragStart(e, rowIndex, side) {
+            e.dataTransfer.setData('text/plain', JSON.stringify({ rowIndex, side }));
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            const box = e.currentTarget;
+            if (box && box.classList.contains('id-box')) {
+                box.classList.add('drag-target-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            const box = e.currentTarget;
+            if (box && box.classList.contains('id-box')) {
+                box.classList.remove('drag-target-over');
+            }
+        }
+
+        function handleDrop(e, targetRowIndex, targetSide) {
+            e.preventDefault();
+            const box = e.currentTarget;
+            if (box && box.classList.contains('id-box')) {
+                box.classList.remove('drag-target-over');
+            }
+            const dataStr = e.dataTransfer.getData('text/plain');
+            if (!dataStr) return;
+            const src = JSON.parse(dataStr);
+            moveOrSwapSlots(src.rowIndex, src.side, targetRowIndex, targetSide);
         }
 
         function renderSheets() {
@@ -1504,53 +2354,67 @@
                 sheet.id = `sheet-${s}`;
 
                 for (let r = 0; r < 5; r++) {
-                    const pair = slice[r] || { frontCropped: null, backCropped: null };
+                    const pair = slice[r] || createEmptyRow();
                     const globalIdx = (s * 5) + r;
 
                     const row = document.createElement('div');
                     row.className = 'id-pair-row';
 
-                    // الوش
                     const frontBox = document.createElement('div');
                     frontBox.className = 'id-box' + (pair.frontCropped ? ' has-img' : '');
+                    frontBox.dataset.rowIndex = String(globalIdx);
+                    frontBox.dataset.side = 'front';
                     frontBox.ondragover = handleDragOver;
+                    frontBox.ondragleave = handleDragLeave;
                     frontBox.ondrop = (e) => handleDrop(e, globalIdx, 'front');
 
                     if (pair.frontCropped) {
                         frontBox.draggable = true;
                         frontBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'front');
+                        const fv = pair.frontView || { scale: 1, tx: 0, ty: 0 };
                         frontBox.innerHTML = `
-                            <img src="${pair.frontCropped}">
-                            <span class="tap-hint">اسحب للنقل</span>
+                            <div class="slot-stage">
+                                <img src="${pair.frontCropped}" style="transform: translate(${fv.tx}px, ${fv.ty}px) scale(${fv.scale})">
+                            </div>
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'front', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'front', event)" title="استبدال">+</button>
                         `;
-                        frontBox.ondblclick = () => openCropper(globalIdx, 'front');
-                        initDirectTouch(frontBox, globalIdx, 'front');
+                        frontBox.onclick = (e) => {
+                            if (e.target.closest('button')) return;
+                            openCropper(globalIdx, 'front', e);
+                        };
                     } else {
                         frontBox.innerHTML = `<span>وش البطاقة</span>`;
                     }
+                    attachTwoFingerAndTouchDrag(frontBox, globalIdx, 'front');
 
-                    // الظهر
                     const backBox = document.createElement('div');
                     backBox.className = 'id-box' + (pair.backCropped ? ' has-img' : '');
+                    backBox.dataset.rowIndex = String(globalIdx);
+                    backBox.dataset.side = 'back';
                     backBox.ondragover = handleDragOver;
+                    backBox.ondragleave = handleDragLeave;
                     backBox.ondrop = (e) => handleDrop(e, globalIdx, 'back');
 
                     if (pair.backCropped) {
                         backBox.draggable = true;
                         backBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'back');
+                        const bv = pair.backView || { scale: 1, tx: 0, ty: 0 };
                         backBox.innerHTML = `
-                            <img src="${pair.backCropped}">
-                            <span class="tap-hint">اسحب للنقل</span>
+                            <div class="slot-stage">
+                                <img src="${pair.backCropped}" style="transform: translate(${bv.tx}px, ${bv.ty}px) scale(${bv.scale})">
+                            </div>
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'back', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'back', event)" title="استبدال">+</button>
                         `;
-                        backBox.ondblclick = () => openCropper(globalIdx, 'back');
-                        initDirectTouch(backBox, globalIdx, 'back');
+                        backBox.onclick = (e) => {
+                            if (e.target.closest('button')) return;
+                            openCropper(globalIdx, 'back', e);
+                        };
                     } else {
                         backBox.innerHTML = `<span>ظهر البطاقة</span>`;
                     }
+                    attachTwoFingerAndTouchDrag(backBox, globalIdx, 'back');
 
                     row.appendChild(frontBox);
                     row.appendChild(backBox);
@@ -1562,6 +2426,8 @@
                 container.appendChild(wrapper);
             }
 
+            updatePasteButtonState();
+
             if (cardsData.some(i => i.frontCropped || i.backCropped)) {
                 clearSection.innerHTML = `<button class="btn-clear-all" onclick="clearAllData()">🗑️ مسح الكل والبدء من جديد</button>`;
             }
@@ -1569,10 +2435,8 @@
 
         async function exportSheet(sheetId, pageNum, shareWA) {
             const el = document.getElementById(sheetId);
-            const hints = el.querySelectorAll('.tap-hint');
             const dels = el.querySelectorAll('.box-btn-del');
             const reps = el.querySelectorAll('.box-btn-replace');
-            hints.forEach(h => h.style.display = 'none');
             dels.forEach(d => d.style.display = 'none');
             reps.forEach(re => re.style.display = 'none');
 
@@ -1592,7 +2456,6 @@
             } catch (err) {
                 alert('حدث خطأ أثناء التصدير.');
             } finally {
-                hints.forEach(h => h.style.display = 'block');
                 dels.forEach(d => d.style.display = 'flex');
                 reps.forEach(re => re.style.display = 'flex');
             }
