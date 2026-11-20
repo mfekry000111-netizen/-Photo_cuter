@@ -80,7 +80,7 @@
 
         .global-control-bar {
             max-width: 794px;
-            margin: 0 auto 15px auto;
+            margin: 0 auto 12px auto;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
@@ -108,6 +108,90 @@
         .btn-g-enhance.busy,
         .btn-g-save.busy { opacity: 0.7; pointer-events: none; }
         .btn-g-save { background: #2563eb; grid-column: span 3; }
+
+        /* خانة / شريط الترحيل والإزاحة اليدوي */
+        .shift-panel {
+            display: none;
+            max-width: 794px;
+            margin: 0 auto 12px auto;
+            background: #1b2432;
+            border: 1.5px solid #38bdf8;
+            border-radius: 12px;
+            padding: 10px 12px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        }
+
+        .shift-panel.active {
+            display: block;
+        }
+
+        .shift-panel-top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .shift-select-all-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: #e0f2fe;
+            font-size: 0.82rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .shift-select-all-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #22c55e;
+            cursor: pointer;
+        }
+
+        .shift-actions-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-shift-apply {
+            background: #16a34a;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 12px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.35);
+        }
+
+        .btn-shift-apply:disabled {
+            background: #475569;
+            opacity: 0.7;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-shift-clear {
+            background: #334155;
+            color: #f1f5f9;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .shift-panel-hint {
+            color: #bae6fd;
+            font-size: 0.74rem;
+            line-height: 1.4;
+        }
 
         .move-mode-banner {
             display: none;
@@ -479,6 +563,36 @@
         .id-box.pinching-active,
         .id-box.nudging-active { touch-action: none; }
 
+        .id-box.shift-checked {
+            border: 2.5px solid #0284c7 !important;
+            box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.28);
+        }
+
+        .shift-slot-checkbox {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            border: 2px solid #0284c7;
+            background: rgba(255, 255, 255, 0.95);
+            color: #0284c7;
+            font-size: 13px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 7;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+        }
+
+        .shift-slot-checkbox.checked {
+            background: #0284c7;
+            color: #ffffff;
+        }
+
         .id-box.moving-selected {
             border: 3px solid #16a34a !important;
             box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.35), 0 8px 18px rgba(0, 0, 0, 0.25);
@@ -625,7 +739,7 @@
 
         @media print {
             body { background: white; padding: 0; }
-            header, .upload-section, .global-control-bar, .move-mode-banner, .page-toolbar, #cropperModal, #touchDragGhost, .btn-clear-all, .box-btn-del, .box-btn-replace { display: none !important; }
+            header, .upload-section, .global-control-bar, .shift-panel, .move-mode-banner, .page-toolbar, #cropperModal, #touchDragGhost, .btn-clear-all, .box-btn-del, .box-btn-replace, .shift-slot-checkbox { display: none !important; }
             .page-wrapper { margin: 0; page-break-after: always; }
             .a4-sheet { box-shadow: none; width: 210mm; height: 297mm; padding: 5mm; gap: 4mm; }
         }
@@ -648,6 +762,25 @@
         <button class="btn-g-action btn-g-paste" id="globalPasteBtn" onclick="globalPasteFormat()">📌 لصق التنسيق</button>
         <button class="btn-g-action btn-g-enhance" id="globalEnhanceBtn" onclick="globalEnhanceAllCards()">✨ تحسين</button>
         <button class="btn-g-action btn-g-save" id="globalSaveAllBtn" onclick="manualSaveWork()">💾 حفظ العمل يدوياً</button>
+    </div>
+
+    <!-- خانة الترحيل اليدوي وتحديد الكل عند وجود مكان فاضي -->
+    <div class="shift-panel" id="shiftPanel">
+        <div class="shift-panel-top">
+            <label class="shift-select-all-label">
+                <input type="checkbox" id="shiftSelectAllCb" onchange="toggleSelectAllForShift(this.checked)">
+                <span>تحديد الكل للترحيل</span>
+            </label>
+            <div class="shift-actions-group">
+                <button type="button" class="btn-shift-apply" id="btnApplyShift" onclick="applyManualShift()" disabled>
+                    ↩️ ترحيل المحدد (0)
+                </button>
+                <button type="button" class="btn-shift-clear" onclick="clearShiftSelection()">إلغاء التحديد</button>
+            </div>
+        </div>
+        <div class="shift-panel-hint" id="shiftPanelHint">
+            حدد الصور التي تريد ترحيلها خطوة نحو الخانة الفارغة ثم اضغط (ترحيل المحدد) — لا يتم الترحيل إلا يدوياً.
+        </div>
     </div>
 
     <div class="move-mode-banner" id="moveModeBanner">
@@ -738,7 +871,7 @@
             br: { x: 1, y: 1 },
             bl: { x: 0, y: 1 }
         };
-        const STORAGE_KEY = 'pro_id_cards_v59';
+        const STORAGE_KEY = 'pro_id_cards_v60';
 
         let cardsData = [];
         let activeRowIndex = -1;
@@ -748,6 +881,7 @@
 
         let copiedFormat = null;
         let selectedSlots = new Set();
+        let shiftSelectedKeys = new Set();
 
         let pendingMoveSource = null;
         let lastTapInfo = { rowIndex: -1, side: null, time: 0 };
@@ -822,6 +956,198 @@
                 base[k].y = clamp01(base[k].y + safeDy);
             });
             return base;
+        }
+
+        function getOrderedSlotsList() {
+            const list = [];
+            for (let r = 0; r < cardsData.length; r++) {
+                list.push({ rowIndex: r, side: 'front', key: `${r}_front` });
+                list.push({ rowIndex: r, side: 'back', key: `${r}_back` });
+            }
+            return list;
+        }
+
+        function hasAnyInteriorEmptySlot() {
+            const slots = getOrderedSlotsList();
+            let lastFilledIdx = -1;
+            for (let i = slots.length - 1; i >= 0; i--) {
+                const s = slots[i];
+                const item = cardsData[s.rowIndex];
+                const hasImg = s.side === 'front' ? !!(item && item.frontCropped) : !!(item && item.backCropped);
+                if (hasImg) {
+                    lastFilledIdx = i;
+                    break;
+                }
+            }
+            if (lastFilledIdx <= 0) return false;
+            for (let i = 0; i < lastFilledIdx; i++) {
+                const s = slots[i];
+                const item = cardsData[s.rowIndex];
+                const hasImg = s.side === 'front' ? !!(item && item.frontCropped) : !!(item && item.backCropped);
+                if (!hasImg) return true;
+            }
+            return false;
+        }
+
+        function getSelectableShiftKeys() {
+            const slots = getOrderedSlotsList();
+            const keys = [];
+            for (let i = 0; i < slots.length; i++) {
+                const s = slots[i];
+                const item = cardsData[s.rowIndex];
+                const hasImg = s.side === 'front' ? !!(item && item.frontCropped) : !!(item && item.backCropped);
+                if (hasImg) {
+                    keys.push(s.key);
+                }
+            }
+            return keys;
+        }
+
+        function toggleShiftSlotSelection(rowIndex, side, event) {
+            if (event) event.stopPropagation();
+            const key = getSlotKey(rowIndex, side);
+            if (shiftSelectedKeys.has(key)) {
+                shiftSelectedKeys.delete(key);
+            } else {
+                shiftSelectedKeys.add(key);
+            }
+            syncShiftPanelUI();
+            renderSheets();
+        }
+
+        function toggleSelectAllForShift(checked) {
+            const selectable = getSelectableShiftKeys();
+            shiftSelectedKeys.clear();
+            if (checked) {
+                selectable.forEach(k => shiftSelectedKeys.add(k));
+            }
+            syncShiftPanelUI();
+            renderSheets();
+        }
+
+        function clearShiftSelection() {
+            shiftSelectedKeys.clear();
+            syncShiftPanelUI();
+            renderSheets();
+        }
+
+        function syncShiftPanelUI() {
+            const panel = document.getElementById('shiftPanel');
+            const applyBtn = document.getElementById('btnApplyShift');
+            const selectAllCb = document.getElementById('shiftSelectAllCb');
+            const hintEl = document.getElementById('shiftPanelHint');
+
+            const hasGap = hasAnyInteriorEmptySlot();
+            const selectable = getSelectableShiftKeys();
+
+            for (const k of Array.from(shiftSelectedKeys)) {
+                if (!selectable.includes(k)) {
+                    shiftSelectedKeys.delete(k);
+                }
+            }
+
+            if (panel) {
+                panel.classList.toggle('active', hasGap);
+            }
+
+            if (selectAllCb) {
+                selectAllCb.checked = selectable.length > 0 && selectable.every(k => shiftSelectedKeys.has(k));
+            }
+
+            if (applyBtn) {
+                applyBtn.disabled = shiftSelectedKeys.size === 0;
+                applyBtn.innerText = `↩️ ترحيل المحدد (${shiftSelectedKeys.size})`;
+            }
+
+            if (hintEl && hasGap) {
+                hintEl.innerText = shiftSelectedKeys.size > 0
+                    ? `تم تحديد (${shiftSelectedKeys.size}) صورة — اضغط (ترحيل المحدد) لتحريك كل صورة محددة خطوة للخلف نحو المكان الفاضي.`
+                    : 'يوجد مكان فاضي: حدد الصور المراد ترحيلها خطوة للخلف أو اضغط (تحديد الكل) ثم (ترحيل المحدد).';
+            }
+        }
+
+        function applyManualShift() {
+            if (shiftSelectedKeys.size === 0) return;
+
+            const slots = getOrderedSlotsList();
+            const extractSlot = (item, side) => side === 'front' ? {
+                original: item.frontOriginal,
+                origData: item.frontOrigData,
+                cropped: item.frontCropped,
+                quad: cloneQuad(item.frontQuad || FULL_QUAD),
+                rot: JSON.parse(JSON.stringify(item.frontRot || { base: 0, fine: 0 })),
+                isCropped: !!item.frontIsCropped,
+                view: JSON.parse(JSON.stringify(item.frontView || { scale: 1, tx: 0, ty: 0 }))
+            } : {
+                original: item.backOriginal,
+                origData: item.backOrigData,
+                cropped: item.backCropped,
+                quad: cloneQuad(item.backQuad || FULL_QUAD),
+                rot: JSON.parse(JSON.stringify(item.backRot || { base: 0, fine: 0 })),
+                isCropped: !!item.backIsCropped,
+                view: JSON.parse(JSON.stringify(item.backView || { scale: 1, tx: 0, ty: 0 }))
+            };
+
+            const assignSlot = (item, side, data) => {
+                if (side === 'front') {
+                    item.frontOriginal = data.original;
+                    item.frontOrigData = data.origData;
+                    item.frontCropped = data.cropped;
+                    item.frontQuad = data.quad;
+                    item.frontRot = data.rot;
+                    item.frontIsCropped = data.isCropped;
+                    item.frontView = data.view;
+                } else {
+                    item.backOriginal = data.original;
+                    item.backOrigData = data.origData;
+                    item.backCropped = data.cropped;
+                    item.backQuad = data.quad;
+                    item.backRot = data.rot;
+                    item.backIsCropped = data.isCropped;
+                    item.backView = data.view;
+                }
+            };
+
+            const emptySlot = {
+                original: null,
+                origData: null,
+                cropped: null,
+                quad: cloneQuad(FULL_QUAD),
+                rot: { base: 0, fine: 0 },
+                isCropped: false,
+                view: { scale: 1, tx: 0, ty: 0 }
+            };
+
+            const nextShiftKeys = new Set();
+
+            for (let i = 1; i < slots.length; i++) {
+                const currSlot = slots[i];
+                const prevSlot = slots[i - 1];
+                if (!shiftSelectedKeys.has(currSlot.key)) continue;
+
+                const currItem = cardsData[currSlot.rowIndex];
+                const prevItem = cardsData[prevSlot.rowIndex];
+                if (!currItem || !prevItem) continue;
+
+                const currData = extractSlot(currItem, currSlot.side);
+                const prevData = extractSlot(prevItem, prevSlot.side);
+
+                if (!currData.cropped) continue;
+                if (prevData.cropped) continue;
+
+                assignSlot(prevItem, prevSlot.side, currData);
+                assignSlot(currItem, currSlot.side, emptySlot);
+
+                if (shiftSelectedKeys.has(prevSlot.key)) {
+                    nextShiftKeys.add(prevSlot.key);
+                }
+            }
+
+            shiftSelectedKeys = nextShiftKeys;
+            pendingMoveSource = null;
+            ensureEmptySlots();
+            saveToStorage();
+            renderSheets();
         }
 
         function updateMoveModeUI() {
@@ -1321,14 +1647,17 @@
             return new Promise((resolve, reject) => {
                 const dels = sheetEl.querySelectorAll('.box-btn-del');
                 const reps = sheetEl.querySelectorAll('.box-btn-replace');
+                const cbs = sheetEl.querySelectorAll('.shift-slot-checkbox');
                 dels.forEach(d => d.style.display = 'none');
                 reps.forEach(re => re.style.display = 'none');
+                cbs.forEach(cb => cb.style.display = 'none');
 
                 html2canvas(sheetEl, { scale: 2.5, backgroundColor: '#ffffff', useCORS: true })
                     .then(canvasEl => {
                         canvasEl.toBlob(blob => {
                             dels.forEach(d => d.style.display = 'flex');
                             reps.forEach(re => re.style.display = 'flex');
+                            cbs.forEach(cb => cb.style.display = 'flex');
                             if (blob) resolve(blob);
                             else reject(new Error('Blob failed'));
                         }, 'image/jpeg', 0.95);
@@ -1336,6 +1665,7 @@
                     .catch(err => {
                         dels.forEach(d => d.style.display = 'flex');
                         reps.forEach(re => re.style.display = 'flex');
+                        cbs.forEach(cb => cb.style.display = 'flex');
                         reject(err);
                     });
             });
@@ -1393,6 +1723,7 @@
                 localStorage.removeItem(STORAGE_KEY);
                 cardsData = [];
                 selectedSlots.clear();
+                shiftSelectedKeys.clear();
                 copiedFormat = null;
                 pendingMoveSource = null;
                 ensureEmptySlots();
@@ -2271,6 +2602,7 @@
                 pendingMoveSource = null;
             }
             selectedSlots.delete(getSlotKey(rowIndex, side));
+            shiftSelectedKeys.delete(getSlotKey(rowIndex, side));
 
             if (side === 'front') {
                 item.frontOriginal = null;
@@ -2321,6 +2653,8 @@
                     while (cardsData.length <= replaceTargetIndex) {
                         cardsData.push(createEmptyRow());
                     }
+
+                    shiftSelectedKeys.delete(getSlotKey(replaceTargetIndex, replaceTargetSide));
 
                     const item = cardsData[replaceTargetIndex];
                     if (replaceTargetSide === 'front') {
@@ -2750,6 +3084,7 @@
             container.innerHTML = '';
             clearSection.innerHTML = '';
 
+            const showShiftControls = hasAnyInteriorEmptySlot();
             const totalSheets = Math.max(1, Math.ceil(cardsData.filter(i => i.frontCropped || i.backCropped).length / 5) + 1);
 
             for (let s = 0; s < totalSheets; s++) {
@@ -2781,8 +3116,11 @@
                     const row = document.createElement('div');
                     row.className = 'id-pair-row';
 
+                    const frontKey = getSlotKey(globalIdx, 'front');
+                    const frontChecked = showShiftControls && pair.frontCropped && shiftSelectedKeys.has(frontKey);
+
                     const frontBox = document.createElement('div');
-                    frontBox.className = 'id-box' + (pair.frontCropped ? ' has-img' : '');
+                    frontBox.className = 'id-box' + (pair.frontCropped ? ' has-img' : '') + (frontChecked ? ' shift-checked' : '');
                     frontBox.dataset.rowIndex = String(globalIdx);
                     frontBox.dataset.side = 'front';
                     frontBox.ondragover = handleDragOver;
@@ -2793,12 +3131,16 @@
                         frontBox.draggable = true;
                         frontBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'front');
                         const fv = pair.frontView || { scale: 1, tx: 0, ty: 0 };
+                        const cbHtml = showShiftControls
+                            ? `<button type="button" class="shift-slot-checkbox ${frontChecked ? 'checked' : ''}" onclick="toggleShiftSlotSelection(${globalIdx}, 'front', event)" title="تحديد للترحيل">${frontChecked ? '✓' : ''}</button>`
+                            : '';
                         frontBox.innerHTML = `
                             <div class="slot-stage">
                                 <img src="${pair.frontCropped}" style="transform: translate(${fv.tx}px, ${fv.ty}px) scale(${fv.scale})">
                             </div>
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'front', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'front', event)" title="استبدال">+</button>
+                            ${cbHtml}
                         `;
                     } else {
                         frontBox.innerHTML = `
@@ -2814,8 +3156,11 @@
                     };
                     attachTwoFingerAndTouchDrag(frontBox, globalIdx, 'front');
 
+                    const backKey = getSlotKey(globalIdx, 'back');
+                    const backChecked = showShiftControls && pair.backCropped && shiftSelectedKeys.has(backKey);
+
                     const backBox = document.createElement('div');
-                    backBox.className = 'id-box' + (pair.backCropped ? ' has-img' : '');
+                    backBox.className = 'id-box' + (pair.backCropped ? ' has-img' : '') + (backChecked ? ' shift-checked' : '');
                     backBox.dataset.rowIndex = String(globalIdx);
                     backBox.dataset.side = 'back';
                     backBox.ondragover = handleDragOver;
@@ -2826,12 +3171,16 @@
                         backBox.draggable = true;
                         backBox.ondragstart = (e) => handleDragStart(e, globalIdx, 'back');
                         const bv = pair.backView || { scale: 1, tx: 0, ty: 0 };
+                        const cbHtml = showShiftControls
+                            ? `<button type="button" class="shift-slot-checkbox ${backChecked ? 'checked' : ''}" onclick="toggleShiftSlotSelection(${globalIdx}, 'back', event)" title="تحديد للترحيل">${backChecked ? '✓' : ''}</button>`
+                            : '';
                         backBox.innerHTML = `
                             <div class="slot-stage">
                                 <img src="${pair.backCropped}" style="transform: translate(${bv.tx}px, ${bv.ty}px) scale(${bv.scale})">
                             </div>
                             <button class="box-btn-del" onclick="deleteSingleImage(${globalIdx}, 'back', event)" title="حذف">✕</button>
                             <button class="box-btn-replace" onclick="triggerReplaceImage(${globalIdx}, 'back', event)" title="استبدال">+</button>
+                            ${cbHtml}
                         `;
                     } else {
                         backBox.innerHTML = `
@@ -2857,6 +3206,7 @@
                 container.appendChild(wrapper);
             }
 
+            syncShiftPanelUI();
             updateMoveModeUI();
             updatePasteButtonState();
 
@@ -2869,8 +3219,10 @@
             const el = document.getElementById(sheetId);
             const dels = el.querySelectorAll('.box-btn-del');
             const reps = el.querySelectorAll('.box-btn-replace');
+            const cbs = el.querySelectorAll('.shift-slot-checkbox');
             dels.forEach(d => d.style.display = 'none');
             reps.forEach(re => re.style.display = 'none');
+            cbs.forEach(cb => cb.style.display = 'none');
 
             try {
                 const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
@@ -2890,6 +3242,7 @@
             } finally {
                 dels.forEach(d => d.style.display = 'flex');
                 reps.forEach(re => re.style.display = 'flex');
+                cbs.forEach(cb => cb.style.display = 'flex');
             }
         }
     </script>
